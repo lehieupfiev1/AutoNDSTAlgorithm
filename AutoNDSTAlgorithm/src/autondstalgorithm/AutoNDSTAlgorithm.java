@@ -38,7 +38,7 @@ public class AutoNDSTAlgorithm {
         NDSTAlgorithm2 algorithm = new NDSTAlgorithm2(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
-        for (int i = 6; i <= 6; i++) {
+        for (int i = 7; i <= 7; i++) {
             try {
                 System.out.println("Test case "+i+"---------------------------");
                 //Cai dat ten File

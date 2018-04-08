@@ -322,21 +322,17 @@ public class NDSTAlgorithm2 {
     }
     
     void Getting_CCP(List<List<PathItem>> TotalListY, List<Integer> listTarget, List<List<PathItem>> ListY) {
-        //Create new item of ListY
-        for (int i =0; i < TotalListY.size(); i++) {
-            List<PathItem> Yi = new ArrayList<>();
-            ListY.add(Yi);
-        }
         
         for (int i =0; i < listTarget.size(); i++) {
             int id = listTarget.get(i);
             //Get List PathItem of id target in TotalListTarget
             List<PathItem> totalYi = TotalListY.get(id);
-            List<PathItem> Yi = ListY.get(id);
+            List<PathItem> Yi = new ArrayList<>();
             for (int j =0; j < totalYi.size(); j++) {
                 PathItem pathItem = totalYi.get(j);
                 Yi.add(pathItem);
             }
+            ListY.add(Yi);
         }
         
     }
