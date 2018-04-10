@@ -35,10 +35,10 @@ public class AutoNDSTAlgorithm {
 
         // TODO code application logic here
         //NDSTAlgorithm1 algorithm = new NDSTAlgorithm1();
-        NDSTAlgorithm2 algorithm = new NDSTAlgorithm2(); //Tinh all path ngay tu dau
+        NDSTAlgorithm4 algorithm = new NDSTAlgorithm4(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
-        for (int i = 7; i <= 7; i++) {
+        for (int i = 8; i <= 8; i++) {
             try {
                 System.out.println("Test case "+i+"---------------------------");
                 //Cai dat ten File

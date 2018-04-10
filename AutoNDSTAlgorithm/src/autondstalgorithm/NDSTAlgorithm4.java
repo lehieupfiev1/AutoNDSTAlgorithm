@@ -25,12 +25,11 @@ import java.util.logging.Logger;
 /**
  *
  * @author Hieu
- * Thay doi : Tinh toan toan bo cac path chi 1 lan rùi lưu lại
- * Nhung lần sau get về dựa vào target của ô đang xét
- * Improve code find path
- * 
+ * Coppy from NDST2
+ * Khong can tinh sensor neighbor nua
+ * Chia nho mang ra de tinh Path
  */
-public class NDSTAlgorithm2 {
+public class NDSTAlgorithm4 {
     public float Distance[][];// Matrix distance between two nodes
     public float MinDistanceSink[];// Matrix distance between two nodes
     public float Target[][];// Target nodes
@@ -68,7 +67,7 @@ public class NDSTAlgorithm2 {
     int T;//Number of Tagert Nodes
     int Anpha; // So lan tang
     
-    public NDSTAlgorithm2() {
+    public NDSTAlgorithm4() {
         
     }
     
@@ -175,16 +174,16 @@ public class NDSTAlgorithm2 {
         }
         
         //Calculate list node neighbor
-        ListofListNeighbor.clear();
-        for (int i =0; i< N; i++) {
-            List<Integer> listNeighbor = new ArrayList<>();
-            for (int j =0; j < N; j++) {
-                if (i != j && Distance[i][j] <= Rc) {
-                    listNeighbor.add(j);
-                }
-            }
-            ListofListNeighbor.add(listNeighbor);
-        }
+//        ListofListNeighbor.clear();
+//        for (int i =0; i< N; i++) {
+//            List<Integer> listNeighbor = new ArrayList<>();
+//            for (int j =0; j < N; j++) {
+//                if (i != j && Distance[i][j] <= Rc) {
+//                    listNeighbor.add(j);
+//                }
+//            }
+//            ListofListNeighbor.add(listNeighbor);
+//        }
         
         //Init resultListY and resultListTi 
         
@@ -223,13 +222,67 @@ public class NDSTAlgorithm2 {
         }
         return false;
     }
+    void FindPathDiviceNetworkWidth(FloatPointItem UpLeftCornerPoint, FloatPointItem DownRightCornerPoint) {
+        FloatPointItem upPoint = new FloatPointItem();
+        FloatPointItem downPoint = new FloatPointItem();
+        float PostionX = UpLeftCornerPoint.getX();
+        float MaxPostionX = DownRightCornerPoint.getX();
+        
+        while (PostionX < MaxPostionX) {
+            upPoint.setXY(PostionX, UpLeftCornerPoint.getY());
+            PostionX += 2 * R;
+            if (PostionX >= MaxPostionX) {
+                PostionX = MaxPostionX;
+            }
+            downPoint.setXY(PostionX, DownRightCornerPoint.getY());
+            FindPathDiviceNetWorkHeight(upPoint,downPoint);
+        }
+        
+    }
     
+    void FindPathDiviceNetWorkHeight(FloatPointItem UpLeftCornerPoint, FloatPointItem DownRightCornerPoint) {
+        FloatPointItem upPoint = new FloatPointItem();
+        FloatPointItem downPoint = new FloatPointItem();
+        float PostionY = UpLeftCornerPoint.getY();
+        float MaxPostionY = DownRightCornerPoint.getY();
+        while (PostionY < MaxPostionY) {
+            upPoint.setXY(UpLeftCornerPoint.getX(), PostionY);
+            PostionY += 2 * R;
+            if (PostionY >= MaxPostionY) {
+                PostionY = MaxPostionY;
+            }
+            downPoint.setXY(DownRightCornerPoint.getX(), PostionY);
+
+            //Find ListSensor in Block
+            List<Integer> tempListSensor = FindListSensor(upPoint, downPoint);
+            List<Integer> tempListTarget = FindListTarget(upPoint, downPoint);
+            List<Integer> tempListSink = FindListSink(upPoint, downPoint);
+
+            //Find Path in network
+            List<List<PathItem>> tempListY = new ArrayList<>();
+            Finding_CCP(tempListSensor, tempListTarget, tempListSink, tempListY);
+            
+            //Coppy Path to TotalPath
+            for (int i =0; i < tempListTarget.size(); i++) {
+                int idTarget = tempListTarget.get(i);
+                List<PathItem> listPath = TotalListY.get(idTarget);
+                List<PathItem> tempListPath = tempListY.get(i);
+                for (int j =0; j < tempListPath.size(); j++) {
+                    PathItem pathItem = tempListPath.get(j);
+                    listPath.add(pathItem);
+                }
+                
+            }
+            
+        }
+
+    }
     void Finding_CCP(List<Integer> listSensor, List<Integer> listTarget, List<Integer> listSink, List<List<PathItem>> ListPathY) {
         List<List<List<Integer>>> ListPi = new ArrayList<>();
         List<List<Integer>> ListP = new ArrayList<>();
         List<List<Integer>> ListParent = new ArrayList<>();
         
-        //Check nulll
+        //Check null
         if (listSensor.isEmpty() || listTarget.isEmpty() || listSink.isEmpty()) {
             return;
         }
@@ -253,6 +306,7 @@ public class NDSTAlgorithm2 {
             //
             List<Integer> listParent1 = new ArrayList<>();
             int num =0;
+            
             for (int i = 0; i < listSensorNearSink.size(); i++) {
                 List<Integer> list = new ArrayList<>();
                 list.add(listSensorNearSink.get(i));
@@ -266,6 +320,7 @@ public class NDSTAlgorithm2 {
                 }
 
             }
+            
             for (int j = 0;j< num;j++) {
                ListParent.add(listParent1);
             }
@@ -292,18 +347,17 @@ public class NDSTAlgorithm2 {
                         listParent.add(headParent.get(j));
                     }
                     int count =0;
-                    List<Integer> listNeighbor = ListofListNeighbor.get(lastSensor);
-                    for (int i = 0; i < listNeighbor.size(); i++) {
-                        if (lastSensor != listNeighbor.get(i) && Distance[lastSensor][listNeighbor.get(i)] <= Rc) {
+                    for (int i = 0; i < listSensor.size(); i++) {
+                        if (lastSensor != listSensor.get(i) && Distance[lastSensor][listSensor.get(i)] <= Rc) {
 
-                            if (!checkPointExitInList(listNeighbor.get(i), headParent)) {
+                            if (!checkPointExitInList(listSensor.get(i), headParent)) {
                                 // Coppy to new Array
                                 List<Integer> list = new ArrayList<>();
                                 for (int j = 0; j < headP.size(); j++) {
                                     list.add(headP.get(j));
                                 }
-                                list.add(listNeighbor.get(i));
-                                listParent.add(listNeighbor.get(i));
+                                list.add(listSensor.get(i));
+                                listParent.add(listSensor.get(i));
                                 count++;
 
                                 //Add list to P
@@ -677,23 +731,28 @@ public class NDSTAlgorithm2 {
             listSensor.add(i);
         }
         List<Integer> listTarget = new ArrayList<>();
+        TotalListY.clear();
         for (int i = 0; i < mListTargetNodes.size(); i++) {
             listTarget.add(i);
+            //Add pathList follow target
+            List<PathItem> listPath = new ArrayList<>();
+            TotalListY.add(listPath);
         }
         List<Integer> listSink = new ArrayList<>();
         for (int i = 0; i < mListSinkNodes.size(); i++) {
             listSink.add(i);
         }
         
+        FloatPointItem UpLeftCornerPoint = new FloatPointItem(0,0);
+        FloatPointItem DownRightCornerPoint = new FloatPointItem(SensorUtility.numberRow,SensorUtility.numberColum);
+        
         //Calculate total Path in network
         long start = System.currentTimeMillis();
-        Finding_CCP(listSensor, listTarget, listSink, TotalListY);
+        //Finding_CCP(listSensor, listTarget, listSink, TotalListY);
+        FindPathDiviceNetworkWidth(UpLeftCornerPoint,DownRightCornerPoint);
         long end = System.currentTimeMillis();
         long time = end - start;
         System.out.println("Time run find path ="+time);
-        
-        FloatPointItem UpLeftCornerPoint = new FloatPointItem(0,0);
-        FloatPointItem DownRightCornerPoint = new FloatPointItem(SensorUtility.numberRow,SensorUtility.numberColum);
         
         
         List<List<List<PathItem>>> ListOfListY = new ArrayList<>();
