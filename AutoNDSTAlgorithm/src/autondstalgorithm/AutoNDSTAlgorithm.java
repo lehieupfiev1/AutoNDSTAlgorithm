@@ -29,16 +29,16 @@ public class AutoNDSTAlgorithm {
     public static ArrayList<Double> listTotalTime;
     public static long timeRuning;
     public static double timeLifeOn;
-    public static String mPath = "E:\\HIEU\\CAO HOC\\SensorSimulationProject\\SensorDemo\\";
+    public static String mPath = "E:\\HIEU\\CAO HOC\\";
     
     public static void main(String[] args) {
 
         // TODO code application logic here
         //NDSTAlgorithm1 algorithm = new NDSTAlgorithm1();
-        NDSTAlgorithm4 algorithm = new NDSTAlgorithm4(); //Tinh all path ngay tu dau
+        NDSTAlgorithm5 algorithm = new NDSTAlgorithm5(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
-        for (int i = 8; i <= 8; i++) {
+        for (int i = 15; i <= 15; i++) {
             try {
                 System.out.println("Test case "+i+"---------------------------");
                 //Cai dat ten File
