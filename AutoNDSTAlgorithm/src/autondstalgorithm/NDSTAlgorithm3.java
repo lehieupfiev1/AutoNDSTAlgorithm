@@ -37,6 +37,8 @@ public class NDSTAlgorithm3 {
     float Rs, Rc;// Rs and Rt value
     float R; // Tinh phan chia nho nhat
     int MaxHopper;
+    static int count =0;
+    static int TotalThread =0;
 
     List<List<List<PathItem>>> SaveListofListY;
     List<List<List<Double>>> SaveListofListTi;
@@ -53,6 +55,7 @@ public class NDSTAlgorithm3 {
     float TimeStamp ;
     boolean isWidthOptimal = false;
     boolean isHeightOptimal = false;
+
     
     float Es, Et,Er,Efs,Emp,Do, bit;
     int cnt;
@@ -205,41 +208,63 @@ public class NDSTAlgorithm3 {
         return false;
     }
     
-    void Finding_CCP(List<Integer> listSensor, List<Integer> listTarget, List<Integer> listSink, List<List<PathItem>> ListPathY) {
+    void Finding_CCP(List<Integer> listAllSensor, List<Integer> listTarget, List<Integer> listSink, List<List<PathItem>> ListPathY) {
         List<List<List<Integer>>> ListPi = new ArrayList<>();
         List<List<Integer>> ListP = new ArrayList<>();
         List<List<Integer>> ListParent = new ArrayList<>();
         
-        //Check nulll
-        if (listSensor.isEmpty() || listTarget.isEmpty() || listSink.isEmpty()) {
+        //Check null
+        if (listAllSensor.isEmpty() || listTarget.isEmpty() || listSink.isEmpty()) {
             return;
         }
+        
+        //Find ListSensor near Sink
+        List<Integer> listSensorNearSink = new ArrayList<>();
+        List<Integer> listSensor = new ArrayList<>();
+        
         //Khoi tao danh sach Pi
         for (int k = 0; k < listTarget.size(); k++) {
             List<List<Integer>> Pi = new ArrayList<>();
             int target = listTarget.get(k);
 
+            //Find Listsensor possible of target and Sensor NearSink
+            listSensor.clear();
+            listSensorNearSink.clear();
+            for (int i = 0; i < listAllSensor.size(); i++) {
+                if (Distance[listAllSensor.get(i)][N+target] <= (R-Rc)) {
+                    listSensor.add(listAllSensor.get(i));
+                }
+            }
+            
+            for (int i = 0; i < listSensor.size(); i++) {
+                if (MinDistanceSink[listSensor.get(i)] <= Rc) {
+                    listSensorNearSink.add(listSensor.get(i));
+                }
+            }
+            
+            
+            //
             ListP.clear();
             ListParent.clear();
-            //System.out.println("Target "+k + " id ="+target);
+            System.out.println("Target "+k + " id ="+target);
             //
             List<Integer> listParent1 = new ArrayList<>();
             int num =0;
-            for (int i = 0; i < listSensor.size(); i++) {
-                if (checkSensorConnectSink(listSensor.get(i), listSink)) {
-                    List<Integer> list = new ArrayList<>();
-                    list.add(listSensor.get(i));
-                    listParent1.add(listSensor.get(i));
-                    
-                    if (Distance[listSensor.get(i)][N + target] <= Rs) {
-                       Pi.add(list);
-                    } else {
-                       ListP.add(list);
-                       num++;
-                    }
+            
+            for (int i = 0; i < listSensorNearSink.size(); i++) {
+                List<Integer> list = new ArrayList<>();
+                list.add(listSensorNearSink.get(i));
+                listParent1.add(listSensorNearSink.get(i));
 
+                if (Distance[listSensorNearSink.get(i)][N + target] <= Rs) {
+                    Pi.add(list);
+                } else {
+                    ListP.add(list);
+                    num++;
                 }
+
             }
+            
             for (int j = 0;j< num;j++) {
                ListParent.add(listParent1);
             }
@@ -319,21 +344,17 @@ public class NDSTAlgorithm3 {
     }
     
     void Getting_CCP(List<List<PathItem>> TotalListY, List<Integer> listTarget, List<List<PathItem>> ListY) {
-        //Create new item of ListY
-        for (int i =0; i < TotalListY.size(); i++) {
-            List<PathItem> Yi = new ArrayList<>();
-            ListY.add(Yi);
-        }
         
         for (int i =0; i < listTarget.size(); i++) {
             int id = listTarget.get(i);
             //Get List PathItem of id target in TotalListTarget
             List<PathItem> totalYi = TotalListY.get(id);
-            List<PathItem> Yi = ListY.get(id);
+            List<PathItem> Yi = new ArrayList<>();
             for (int j =0; j < totalYi.size(); j++) {
                 PathItem pathItem = totalYi.get(j);
                 Yi.add(pathItem);
             }
+            ListY.add(Yi);
         }
         
     }
@@ -392,11 +413,11 @@ public class NDSTAlgorithm3 {
          for (int i =0 ; i< listCustomAllPath.size(); i++) {
              CustomPathItem customPathItem = listCustomAllPath.get(i);
              List<Integer> listTempSensor = customPathItem.getPathItem().getPath();
-             if (listSensor.size() == listTempSensor.size() && listSensor.get(0) == listTempSensor.get(0)
-                     && listSensor.get(listSensor.size()-1) == listTempSensor.get(listTempSensor.size()-1)) {
+             if (listSensor.size() == listTempSensor.size() && Objects.equals(listSensor.get(0), listTempSensor.get(0))
+                     && Objects.equals(listSensor.get(listSensor.size()-1), listTempSensor.get(listTempSensor.size()-1))) {
                  int count =0;
                  for (int j =0 ; j < listSensor.size(); j++) {
-                     if (listSensor.get(j) == listTempSensor.get(j)) {
+                     if (Objects.equals(listSensor.get(j), listTempSensor.get(j))) {
                          count++;
                      } else {
                          break;
@@ -559,7 +580,7 @@ public class NDSTAlgorithm3 {
                     List<PathItem> pathY = listPathY.get(i);
                     List<Double> time = ListTime.get(i);
                     for (int j =0; j < pathY.size(); j++) {
-                        System.out.print(" "+time.get(j).doubleValue());
+                        System.out.print(" "+time.get(j));
                     }
                     System.out.println();
                 }
@@ -647,7 +668,19 @@ public class NDSTAlgorithm3 {
         }
         System.out.println();
     }
-       
+    
+    int calculateBlock(FloatPointItem UpLeftCornerPoint, FloatPointItem DownRightCornerPoint, int divisons, boolean isFollowWidth) {
+        int result =0;
+        if (isFollowWidth) { //Chia theo chieu doc
+            float min = UpLeftCornerPoint.x;
+            float max = DownRightCornerPoint.x;
+            
+        } else {//Chia theo chieu ngang
+            
+        }
+        return result;
+    }
+    
     public void runAlgorithm() {
         List<Integer> listSensor = new ArrayList<>();
         for (int i = 0; i < mListSensorNodes.size(); i++) {
@@ -760,7 +793,11 @@ public class NDSTAlgorithm3 {
                     temp2returnListX.add(pathY);
                     temp2returnListTi.add(timeY);
                 }
+                long start = System.currentTimeMillis();
                 DiviceNetWorkFollowHeight(upPoint,downPoint,i,temp2returnListX,temp2returnListTi);
+                long end = System.currentTimeMillis();
+                long time = end-start;
+                System.out.println("Runtime Divice Network multithread :"+time);
                 if (!temp2returnListX.isEmpty() && !temp2returnListTi.isEmpty()) {
                     if (CheckEnergyMoreThanEo(temp2returnListX, temp2returnListTi)) {
                         isHeightOptimal = false;
@@ -814,105 +851,124 @@ public class NDSTAlgorithm3 {
     }
     
     public void DiviceNetWorkFollowHeight(FloatPointItem UpLeftCornerPoint, FloatPointItem DownRightCornerPoint, int division, List<List<PathItem>> returnListY, List<List<Double>> returnListTi) {
-        
-        FloatPointItem upPoint = new FloatPointItem();
-        FloatPointItem downPoint = new FloatPointItem();
-        
-        List<List<List<PathItem>>> tempListOfListY = new ArrayList<>();
-        List<List<List<Double>>> tempListOfListTi = new ArrayList<>();
-        List<List<PathItem>> tempListY;
-        List<List<Double>> tempListTi;
-        
-
         float PostionY = UpLeftCornerPoint.getY();
         float MaxPostionY = DownRightCornerPoint.getY();
         boolean isFirstBlock = true;
-        
-        while (PostionY < MaxPostionY)  {
+
+        count = 0;
+        TotalThread = calculateBlock(UpLeftCornerPoint, DownRightCornerPoint, division, false);
+        List<List<List<PathItem>>> tempListOfListY = new ArrayList<>();
+        List<List<List<Double>>> tempListOfListTi = new ArrayList<>();
+        while (PostionY < MaxPostionY) {
+            FloatPointItem upPoint = new FloatPointItem();
+            FloatPointItem downPoint = new FloatPointItem();
             //Set upoint and downpoint of Block
             if (isFirstBlock && division != 0) {
                 //Start Point of Block independent of divison value
                 upPoint.setXY(UpLeftCornerPoint.getX(), PostionY);
                 PostionY += division * 2 * R;
-                if (PostionY >= MaxPostionY) PostionY = MaxPostionY;
+                if (PostionY >= MaxPostionY) {
+                    PostionY = MaxPostionY;
+                }
                 downPoint.setXY(DownRightCornerPoint.getX(), PostionY);
                 isFirstBlock = false;
             } else {
-                
+
                 upPoint.setXY(UpLeftCornerPoint.getX(), PostionY);
-                PostionY += Anpha*2 * R;
-                if (PostionY >= MaxPostionY) PostionY = MaxPostionY;
+                PostionY += Anpha * 2 * R;
+                if (PostionY >= MaxPostionY) {
+                    PostionY = MaxPostionY;
+                }
                 downPoint.setXY(DownRightCornerPoint.getX(), PostionY);
             }
 
-            //Find ListSensor in Block
-            List<Integer> tempListSensor = FindListSensor(upPoint,downPoint);
-            List<Integer> tempListTarget = FindListTarget(upPoint, downPoint);
-            List<Integer> tempListSink = FindListSink(upPoint, downPoint);
-            //showViewTest(tempListSensor);
-            
-            List<List<PathItem>> ListPathY = new ArrayList<>();
-            List<List<Double>> ListTi;
-            int postion = CheckExitListTargetInSaveList(tempListTarget, tempListSink);
-            //int postion = -1;
-            if (postion == -1) {
-                //Finding_CCP(tempListSensor, tempListTarget, tempListSink, ListPathY);
-                Getting_CCP(TotalListY,tempListTarget,ListPathY);
+            Thread thread = new Thread(new Runnable() {
+                @Override
+                public void run() {
 
-                ListTi = LinearProAlgorithm(ListPathY, tempListSensor,tempListTarget, SensorUtility.mEoValue);
-                reduceListPathYi(ListPathY, ListTi);
-                CoppyListToSave(ListPathY, ListTi, tempListTarget, tempListSink);
-            } else {
-                ListTi = new ArrayList<>();
-                GetListFromSave(ListPathY, ListTi, postion);
+                    List<List<PathItem>> ListPathY = new ArrayList<>();
+                    List<List<Double>> ListTi;
+                    //Find ListSensor in Block
+                    List<Integer> tempListSensor = FindListSensor(upPoint, downPoint);
+                    List<Integer> tempListTarget = FindListTarget(upPoint, downPoint);
+                    List<Integer> tempListSink = FindListSink(upPoint, downPoint);
+                    //showViewTest(tempListSensor);
 
-            }
-            
-            //Init tempListTi and tempListY
-            tempListY = new ArrayList<>();
-            tempListTi = new ArrayList<>();
-            for (int i =0 ; i< T; i++) {
-                List<PathItem> Yi = new ArrayList<>();
-                tempListY.add(Yi);
-                
-                //Ti
-                List<Double> Ty = new ArrayList<>();
-                tempListTi.add(Ty);
-            }
-            
-            //Add data from  ListPathY and List Ti
-            if (ListPathY.size() == tempListTarget.size()) {
-                for (int i = 0; i < tempListTarget.size(); i++) {
-                    int pos = tempListTarget.get(i);
-                    tempListY.remove(pos);
-                    tempListY.add(pos, ListPathY.get(i));
+                    //int postion = CheckExitListTargetInSaveList(tempListTarget, tempListSink);
+                    int postion = -1;
+                    if (postion == -1) {
+                        //Finding_CCP(tempListSensor, tempListTarget, tempListSink, ListPathY);
+                        Getting_CCP(TotalListY, tempListTarget, ListPathY);
 
-                    tempListTi.remove(pos);
-                    tempListTi.add(pos, ListTi.get(i));
+                        ListTi = LinearProAlgorithm(ListPathY, tempListSensor, tempListTarget, SensorUtility.mEoValue);
+                        reduceListPathYi(ListPathY, ListTi);
+                        //CoppyListToSave(ListPathY, ListTi, tempListTarget, tempListSink);
+                    } else {
+                        ListTi = new ArrayList<>();
+                        GetListFromSave(ListPathY, ListTi, postion);
+
+                    }
+
+                    //Init tempListTi and tempListY
+                    List<List<PathItem>> tempListY = new ArrayList<>();
+                    List<List<Double>> tempListTi = new ArrayList<>();
+                    for (int i = 0; i < T; i++) {
+                        List<PathItem> Yi = new ArrayList<>();
+                        tempListY.add(Yi);
+
+                        //Ti
+                        List<Double> Ty = new ArrayList<>();
+                        tempListTi.add(Ty);
+                    }
+
+                    //Add data from  ListPathY and List Ti
+                    if (ListPathY.size() == tempListTarget.size()) {
+                        for (int i = 0; i < tempListTarget.size(); i++) {
+                            int pos = tempListTarget.get(i);
+                            tempListY.remove(pos);
+                            tempListY.add(pos, ListPathY.get(i));
+
+                            tempListTi.remove(pos);
+                            tempListTi.add(pos, ListTi.get(i));
+                        }
+                    }
+
+                    //Add result of Block
+                    if (!tempListTarget.isEmpty() && !ListPathY.isEmpty()) {
+                        tempListOfListY.add(tempListY);
+                        tempListOfListTi.add(tempListTi);
+                    } else if (!tempListTarget.isEmpty() && tempListY.isEmpty()) {
+                        System.err.println("Khong ton tai duong di");
+                    }
+
+                    ListPathY = null;
+                    ListTi = null;
+
+                    count++;
+                    System.out.println("count "+count);
+                    if (count == TotalThread) {
+                        System.out.println("Combining_All_Strips with count "+TotalThread);
+                        Combining_All_Strips(tempListOfListY, tempListOfListTi, returnListY, returnListTi);
+                    }
                 }
+            });
+
+            thread.start();
+            try {
+                thread.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(NDSTAlgorithm3.class.getName()).log(Level.SEVERE, null, ex);
             }
-            
-            //Add result of Block
-            if (!tempListTarget.isEmpty() && !ListPathY.isEmpty()) {
-                tempListOfListY.add(tempListY);
-                tempListOfListTi.add(tempListTi);
-            } else if (!tempListTarget.isEmpty() && tempListY.isEmpty()) {
-                System.err.println("Khong ton tai duong di");
-            }
-            
-            ListPathY = null;
-            ListTi = null;
 
         }
-        Combining_All_Strips(tempListOfListY, tempListOfListTi, returnListY, returnListTi);
-        
+
         //Free Data
-        tempListOfListY = null;
-        tempListOfListTi = null;
-        tempListY = null; 
-        tempListTi = null;
-        upPoint = null;
-        downPoint = null;
+//        tempListOfListY = null;
+//        tempListOfListTi = null;
+//        tempListY = null; 
+//        tempListTi = null;
+//        upPoint = null;
+//        downPoint = null;
     }
     
     void reduceListPathYi(List<List<PathItem>> ListPathY, List<List<Double>> ListTimeY) {
@@ -1107,9 +1163,9 @@ public class NDSTAlgorithm3 {
        List<Integer> listSensorInAllPath = new ArrayList<>();
        FindListSensorInAllPath(returnListY,listSensorInAllPath);
        
-       if (listSensorInAllPath.size() == 0) return;
+       if (listSensorInAllPath.isEmpty()) return;
        //Tao list Energy tuong ung voi cac sensor      
-       List<EnergyItem> listEnergy = new ArrayList<EnergyItem>();
+       List<EnergyItem> listEnergy = new ArrayList<>();
        for (int i = 0; i < listSensorInAllPath.size();i++) {
            EnergyItem energyItem = new EnergyItem(listSensorInAllPath.get(i), 0);
            listEnergy.add(energyItem);
@@ -1174,7 +1230,7 @@ public class NDSTAlgorithm3 {
         } else {
             //TH2 Ton tai Energy cua 1 node lon hon Eo sau khi chia cho Anpha (L)
             //Get list Energy lon hon E0
-            List<EnergyItem> listEnergyEo = new ArrayList<EnergyItem>();
+            List<EnergyItem> listEnergyEo = new ArrayList<>();
             listEnergyEo.clear();
             for (int i =0; i < listEnergy.size();i++) {
                 EnergyItem energyItem = listEnergy.get(i);
@@ -1401,7 +1457,7 @@ public class NDSTAlgorithm3 {
             if (list.size() == listTarget.size()) {
                 int count =0;
                 for (int j =0 ; j < listTarget.size();j++) {
-                    if (list.get(j) != listTarget.get(j)) {
+                    if (!Objects.equals(list.get(j), listTarget.get(j))) {
                         break;
                     } else {
                         count++;
@@ -1418,7 +1474,7 @@ public class NDSTAlgorithm3 {
             if (listS.size() == listSink.size()) {
                 int count1 = 0;
                 for (int j = 0; j < listSink.size(); j++) {
-                    if (listS.get(j) != listSink.get(j)) {
+                    if (!Objects.equals(listS.get(j), listSink.get(j))) {
                         break;
                     } else {
                         count1++;

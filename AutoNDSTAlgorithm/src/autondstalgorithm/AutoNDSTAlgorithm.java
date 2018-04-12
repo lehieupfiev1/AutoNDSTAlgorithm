@@ -35,7 +35,7 @@ public class AutoNDSTAlgorithm {
 
         // TODO code application logic here
         //NDSTAlgorithm1 algorithm = new NDSTAlgorithm1();
-        NDSTAlgorithm5 algorithm = new NDSTAlgorithm5(); //Tinh all path ngay tu dau
+        NDSTAlgorithm3 algorithm = new NDSTAlgorithm3(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
         for (int i = 15; i <= 15; i++) {

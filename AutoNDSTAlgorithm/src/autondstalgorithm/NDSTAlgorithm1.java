@@ -367,11 +367,11 @@ public class NDSTAlgorithm1 {
          for (int i =0 ; i< listCustomAllPath.size(); i++) {
              CustomPathItem customPathItem = listCustomAllPath.get(i);
              List<Integer> listTempSensor = customPathItem.getPathItem().getPath();
-             if (listSensor.size() == listTempSensor.size() && listSensor.get(0) == listTempSensor.get(0)
-                     && listSensor.get(listSensor.size()-1) == listTempSensor.get(listTempSensor.size()-1)) {
+             if (listSensor.size() == listTempSensor.size() && Objects.equals(listSensor.get(0), listTempSensor.get(0))
+                     && Objects.equals(listSensor.get(listSensor.size()-1), listTempSensor.get(listTempSensor.size()-1))) {
                  int count =0;
                  for (int j =0 ; j < listSensor.size(); j++) {
-                     if (listSensor.get(j) == listTempSensor.get(j)) {
+                     if (Objects.equals(listSensor.get(j), listTempSensor.get(j))) {
                          count++;
                      } else {
                          break;
@@ -534,7 +534,7 @@ public class NDSTAlgorithm1 {
                     List<PathItem> pathY = listPathY.get(i);
                     List<Double> time = ListTime.get(i);
                     for (int j =0; j < pathY.size(); j++) {
-                        System.out.print(" "+time.get(j).doubleValue());
+                        System.out.print(" "+time.get(j));
                     }
                     System.out.println();
                 }
@@ -1077,9 +1077,9 @@ public class NDSTAlgorithm1 {
        List<Integer> listSensorInAllPath = new ArrayList<>();
        FindListSensorInAllPath(returnListY,listSensorInAllPath);
        
-       if (listSensorInAllPath.size() == 0) return;
+       if (listSensorInAllPath.isEmpty()) return;
        //Tao list Energy tuong ung voi cac sensor      
-       List<EnergyItem> listEnergy = new ArrayList<EnergyItem>();
+       List<EnergyItem> listEnergy = new ArrayList<>();
        for (int i = 0; i < listSensorInAllPath.size();i++) {
            EnergyItem energyItem = new EnergyItem(listSensorInAllPath.get(i), 0);
            listEnergy.add(energyItem);
@@ -1144,7 +1144,7 @@ public class NDSTAlgorithm1 {
         } else {
             //TH2 Ton tai Energy cua 1 node lon hon Eo sau khi chia cho Anpha (L)
             //Get list Energy lon hon E0
-            List<EnergyItem> listEnergyEo = new ArrayList<EnergyItem>();
+            List<EnergyItem> listEnergyEo = new ArrayList<>();
             listEnergyEo.clear();
             for (int i =0; i < listEnergy.size();i++) {
                 EnergyItem energyItem = listEnergy.get(i);
@@ -1371,7 +1371,7 @@ public class NDSTAlgorithm1 {
             if (list.size() == listTarget.size()) {
                 int count =0;
                 for (int j =0 ; j < listTarget.size();j++) {
-                    if (list.get(j) != listTarget.get(j)) {
+                    if (!Objects.equals(list.get(j), listTarget.get(j))) {
                         break;
                     } else {
                         count++;
@@ -1388,7 +1388,7 @@ public class NDSTAlgorithm1 {
             if (listS.size() == listSink.size()) {
                 int count1 = 0;
                 for (int j = 0; j < listSink.size(); j++) {
-                    if (listS.get(j) != listSink.get(j)) {
+                    if (!Objects.equals(listS.get(j), listSink.get(j))) {
                         break;
                     } else {
                         count1++;

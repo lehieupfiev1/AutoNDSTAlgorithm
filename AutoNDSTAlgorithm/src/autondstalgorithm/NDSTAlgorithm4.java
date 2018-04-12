@@ -846,7 +846,11 @@ public class NDSTAlgorithm4 {
                     temp2returnListX.add(pathY);
                     temp2returnListTi.add(timeY);
                 }
+                long start = System.currentTimeMillis();
                 DiviceNetWorkFollowHeight(upPoint,downPoint,i,temp2returnListX,temp2returnListTi);
+                long end = System.currentTimeMillis();
+                long time = end-start;
+                System.out.println("Runtime Divice Network Normail:"+time);
                 if (!temp2returnListX.isEmpty() && !temp2returnListTi.isEmpty()) {
                     if (CheckEnergyMoreThanEo(temp2returnListX, temp2returnListTi)) {
                         isHeightOptimal = false;
