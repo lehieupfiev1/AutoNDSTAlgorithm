@@ -50,6 +50,7 @@ public class NDSTAlgorithm6 {
     List<Integer> mListSensor ;
     List<Integer> mListTarget ;
     List<Integer> mListSink ;
+    List<CustomPathItem> ListCustomPathItem;
     float ListEnergySensor[];
     float ListEnergyUsing[];
     int MAX_INTERGER = 100000000;
@@ -104,6 +105,7 @@ public class NDSTAlgorithm6 {
         mListSensor = new ArrayList<>();
         mListTarget = new ArrayList<>();
         mListSink = new ArrayList<>();
+        ListCustomPathItem = new ArrayList<>();
     }
     
     public  void readData() {
@@ -216,6 +218,7 @@ public class NDSTAlgorithm6 {
         mListSensor = null;
         mListSink = null;
         mListTarget = null;
+        ListCustomPathItem = null;
     }
     
     public  float calculateDistance(float x1, float y1, float x2, float y2) {
@@ -722,44 +725,49 @@ public class NDSTAlgorithm6 {
         SensorUtility.mListofListPathTime = resultListTi;
         
        //Create: List All Path and Time
-       List<CustomPathItem> ListAllPathItem = new ArrayList<>();
-       
-       List<List<Integer>> ListPostionY = new ArrayList<>();
-        for (int i =0; i < mListofListPath.size(); i++) {
-            List<PathItem> PathY = mListofListPath.get(i);
-            List<Integer> postionY = new ArrayList<>();
-            for (int j =0; j< PathY.size(); j++) {
-                postionY.add(-1);
+        List<CustomPathItem> ListAllPathItem ;
+        if (ListCustomPathItem.isEmpty()) {
+            ListAllPathItem = new ArrayList<>();
+
+            List<List<Integer>> ListPostionY = new ArrayList<>();
+            for (int i = 0; i < mListofListPath.size(); i++) {
+                List<PathItem> PathY = mListofListPath.get(i);
+                List<Integer> postionY = new ArrayList<>();
+                for (int j = 0; j < PathY.size(); j++) {
+                    postionY.add(-1);
+                }
+                ListPostionY.add(postionY);
             }
-            ListPostionY.add(postionY);
+
+            for (int i = 0; i < mListofListPath.size(); i++) {
+                List<PathItem> PathY = mListofListPath.get(i);
+                for (int j = 0; j < PathY.size(); j++) {
+                    PathItem item = PathY.get(j);
+                    int postion = -1;
+                    if (isFull) {
+                        //for test;
+                        postion = checkExitPathItemInList(item, ListAllPathItem);
+                    } else {
+                        postion = ListPostionY.get(i).get(j);
+                    }
+                    //int postion = checkExitPathItemInList(item, ListAllPathItem);
+                    if (postion == -1) {
+                        List<Integer> listId = new ArrayList<>();
+                        listId.add(i);
+                        CustomPathItem customPathItem = new CustomPathItem(listId, item);
+                        customPathItem.setTime(mListofListPathTime.get(i).get(j));
+                        ListAllPathItem.add(customPathItem);
+                        //Find same item in other Path
+                        FindPathItemExitInListAll(mListofListPath, mListTarget, item, ListAllPathItem.size() - 1, i + 1, ListPostionY);
+                    } else {
+                        CustomPathItem customPathItem = ListAllPathItem.get(postion);
+                        customPathItem.getListId().add(i);
+                    }
+                }
+            }
+        } else {
+            ListAllPathItem = ListCustomPathItem;
         }
-       
-       for (int i = 0; i< mListofListPath.size(); i++) {
-           List<PathItem> PathY = mListofListPath.get(i);
-           for (int j =0; j < PathY.size(); j++) {
-                PathItem item = PathY.get(j);
-                int postion = -1;
-                if (isFull) {
-                    //for test;
-                    postion = checkExitPathItemInList(item, ListAllPathItem);
-                } else {
-                    postion = ListPostionY.get(i).get(j);
-                }
-                //int postion = checkExitPathItemInList(item, ListAllPathItem);
-                if (postion == -1) {
-                    List<Integer> listId = new ArrayList<>();
-                    listId.add(i);
-                    CustomPathItem customPathItem = new CustomPathItem(listId, item);
-                    customPathItem.setTime(mListofListPathTime.get(i).get(j));
-                    ListAllPathItem.add(customPathItem);
-                    //Find same item in other Path
-                    FindPathItemExitInListAll(mListofListPath, mListTarget, item, ListAllPathItem.size()-1, i+1, ListPostionY);
-                } else {
-                    CustomPathItem customPathItem = ListAllPathItem.get(postion);
-                    customPathItem.getListId().add(i);
-                }
-           }
-       }
        
        //Calculate Energy using of Sensor
         for (int j = 0; j < ListAllPathItem.size(); j++) {
@@ -951,21 +959,13 @@ public class NDSTAlgorithm6 {
             }
         }
 
-        
+        Combining_All_Division(tempListOfListY,tempListOfListTi,resultListY,resultListTi,isFull);
 
         
-        if (!isFull) {
-            Combining_All_Division(tempListOfListY,tempListOfListTi,resultListY,resultListTi);
-        } else {
-            System.out.println("Found case optimize follow ");
-            resultListY = tempListOfListY.get(0);
-            resultListTi = tempListOfListTi.get(0);
-            isFull = false;
-        }
-        
         //Free data
-        //ListOfListY = null;
-        //ListOfListTi = null;
+        tempListOfListY = null;
+        tempListOfListTi = null;
+                
 
     }
 
@@ -1098,7 +1098,7 @@ public class NDSTAlgorithm6 {
                     tempListT.add(timeY);
             }
             if (!isHeightOptimal) {
-                Combining_All_Division(temp2ListOfListY, temp2ListOfListTi, tempListY, tempListT);
+                Combining_All_Division(temp2ListOfListY, temp2ListOfListTi, tempListY, tempListT, false);
             } else {
                 System.out.println("Found case optimize follow height");
                 tempListY = temp2ListOfListY.get(0);
@@ -1388,7 +1388,7 @@ public class NDSTAlgorithm6 {
         return 0;
     }
     
-    public void Combining_All_Division(List<List<List<PathItem>>> ListOfListY, List<List<List<Double>>> ListOfListT, List<List<PathItem>> returnListY, List<List<Double>> returnListTi) {
+    public void Combining_All_Division(List<List<List<PathItem>>> ListOfListY, List<List<List<Double>>> ListOfListT, List<List<PathItem>> returnListY, List<List<Double>> returnListTi,boolean isFull) {
         //Gop nghiêm lại chia cho L
         //Reduce năng lượng lớn hơn E0
         //Tính cả TH có chung path (các path bị gộp lại là 1)
@@ -1404,15 +1404,20 @@ public class NDSTAlgorithm6 {
                  unionListY(pathY, timeY, retPathY, reTimeY);
               
           }
-       }
+        }
        // Divice Time to (mLvalue)
-       for (int i = 0; i < returnListTi.size(); i++) {
+        for (int i = 0; i < returnListTi.size(); i++) {
            List<Double> reTimeY = returnListTi.get(i);
-           for (int j =0; j < reTimeY.size();j++) {
-            Double x = reTimeY.get(j)/(Anpha*Anpha);
-            reTimeY.remove(j);
-            reTimeY.add(j, x);
-           }
+            for (int j = 0; j < reTimeY.size(); j++) {
+                Double x;
+                if (!isFull) {
+                    x = reTimeY.get(j) / (Anpha * Anpha);
+                } else {
+                    x = reTimeY.get(j);  
+                }
+                reTimeY.remove(j);
+                reTimeY.add(j, x);
+            }
         }
        
        //Tim list sensor in all Path
@@ -1427,19 +1432,39 @@ public class NDSTAlgorithm6 {
            listEnergy.add(energyItem);
        }
        
+        //tao list luu vi tri trung nhau
+        List<List<Integer>> ListPostionY = new ArrayList<>();
+        for (int i =0; i < returnListY.size(); i++) {
+            List<PathItem> PathY = returnListY.get(i);
+            List<Integer> postionY = new ArrayList<>();
+            for (int j =0; j< PathY.size(); j++) {
+                postionY.add(-1);
+            }
+            ListPostionY.add(postionY);
+        }
+        
        //Create: List All Path and Time
        List<CustomPathItem> ListAllPathItem = new ArrayList<>();
        for (int i = 0; i< returnListY.size(); i++) {
            List<PathItem> PathY = returnListY.get(i);
            for (int j =0; j < PathY.size(); j++) {
                 PathItem item = PathY.get(j);
-                int postion = checkExitPathItemInList(item, ListAllPathItem);
+                int postion = -1;
+                if (isFull) {
+                    //for test;
+                    postion = checkExitPathItemInList(item, ListAllPathItem);
+                } else {
+                    postion = ListPostionY.get(i).get(j);
+                }
+                //int postion = checkExitPathItemInList(item, ListAllPathItem);
                 if (postion == -1) {
                     List<Integer> listId = new ArrayList<>();
                     listId.add(i);
                     CustomPathItem customPathItem = new CustomPathItem(listId, item);
                     customPathItem.setTime(returnListTi.get(i).get(j));
                     ListAllPathItem.add(customPathItem);
+                    //Find list
+                    FindPathItemExitInListAll(returnListY, mListTarget, item, ListAllPathItem.size()-1, i+1, ListPostionY);
                 } else {
                     CustomPathItem customPathItem = ListAllPathItem.get(postion);
                     customPathItem.getListId().add(i);
@@ -1478,8 +1503,9 @@ public class NDSTAlgorithm6 {
                }
             
         });
+        ListCustomPathItem.clear();
         float MaxEnergyInList = listEnergy.get(0).getEnergyUse();
-        if (MaxEnergyInList <= SensorUtility.mEoValue) {
+        if (MaxEnergyInList <= SensorUtility.mEoValue+SensorUtility.mOffset) {
             //TH1 : Energy sau khi chia cho L (Anpha) khong lon hon E0
             return ;
 
@@ -1490,7 +1516,7 @@ public class NDSTAlgorithm6 {
             listEnergyEo.clear();
             for (int i =0; i < listEnergy.size();i++) {
                 EnergyItem energyItem = listEnergy.get(i);
-                if (energyItem.getEnergyUse() > SensorUtility.mEoValue) {
+                if (energyItem.getEnergyUse() > SensorUtility.mEoValue+SensorUtility.mOffset) {
                     listEnergyEo.add(energyItem);
                 } else {
                     break; // reason : listEnergy sorted by descending order
@@ -1508,6 +1534,7 @@ public class NDSTAlgorithm6 {
                 time.clear();
             }
             //Coppy to ListY and ListTime
+            ListCustomPathItem = ListAllPathItem;
             for (int i = 0; i < ListAllPathItem.size(); i++) {
                 CustomPathItem customPathItem = ListAllPathItem.get(i);
                 List<Integer> listTagetId = customPathItem.getListId();
@@ -1599,7 +1626,7 @@ public class NDSTAlgorithm6 {
         float MaxEnergyInList = listEnergy.get(0).getEnergyUse();
         
         
-        while (MaxEnergyInList > SensorUtility.mEoValue) {
+        while (MaxEnergyInList > SensorUtility.mEoValue+SensorUtility.mOffset) {
             float ratio = SensorUtility.mEoValue/MaxEnergyInList;
             //Get list vi tri các Path chứa sensor
             List<Integer> listPosPath = listEnergy.get(0).getPosPathList();
