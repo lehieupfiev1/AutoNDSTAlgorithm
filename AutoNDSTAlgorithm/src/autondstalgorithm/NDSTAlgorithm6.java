@@ -435,26 +435,25 @@ public class NDSTAlgorithm6 {
     }
     
     int checkExitPathItemInList(PathItem item, List<CustomPathItem> listCustomAllPath) {
-         List<Integer> listSensor = item.getPath();
-         for (int i =0 ; i< listCustomAllPath.size(); i++) {
-             CustomPathItem customPathItem = listCustomAllPath.get(i);
-             List<Integer> listTempSensor = customPathItem.getPathItem().getPath();
-             if (listSensor.size() == listTempSensor.size() && Objects.equals(listSensor.get(0), listTempSensor.get(0))
-                     && Objects.equals(listSensor.get(listSensor.size()-1), listTempSensor.get(listTempSensor.size()-1))) {
-                 int count =0;
-                 for (int j =0 ; j < listSensor.size(); j++) {
-                     if (Objects.equals(listSensor.get(j), listTempSensor.get(j))) {
-                         count++;
-                     } else {
-                         break;
-                     }
-                 }
-                 if (count == listSensor.size()) return i;
-             }
-         }
-         return -1;
-     }
-    void FindPathItemExitInListAll(List<List<PathItem>> listPathY, List<Integer> listTarget,PathItem item, int postion, int startFrom,List<List<Integer>> ListPostionY ) {
+        List<Integer> listSensor = item.getPath();
+        for (int i = 0; i < listCustomAllPath.size(); i++) {
+            CustomPathItem customPathItem = listCustomAllPath.get(i);
+            List<Integer> listTempSensor = customPathItem.getPathItem().getPath();
+            int count = 0;
+            if (listSensor.size() == listTempSensor.size()) {
+                for (int j = 0; j < listSensor.size(); j++) {
+                    if (Objects.equals(listSensor.get(j), listTempSensor.get(j))) {
+                        count++;
+                    }
+                }
+            }
+            if (count == listSensor.size()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    void FindPathItemExitInListAll(List<List<PathItem>> listPathY, List<Integer> listTarget,PathItem item, int postion, int startFrom,List<List<Integer>> ListPostionY ,boolean isFull) {
         if (item == null || item.size() == 0) return;
         int sensingId = item.getPath().get(0);
         List<Integer> listPos = new ArrayList<>();
@@ -462,7 +461,9 @@ public class NDSTAlgorithm6 {
         //Kiem xem target nao co the bi sensing phu (bat dau tu startFrom)
         for (int i =startFrom; i < listTarget.size(); i++) {
             int idTarget = listTarget.get(i);
-            if (Distance[sensingId][N+idTarget] <= Rs) {
+            if (isFull) { // for test
+                listPos.add(i);
+            } else if (Distance[sensingId][N+idTarget] <= Rs) {
                 listPos.add(i);
             }
         }
@@ -548,7 +549,7 @@ public class NDSTAlgorithm6 {
                     ListPathOfTarget.add(ListAllPath.size());
                     ListAllPath.add(customPathItem);
                     //Find same item in other Path
-                    FindPathItemExitInListAll(listPathY, listTarget, item, ListAllPath.size()-1, i+1, ListPostionY);
+                    FindPathItemExitInListAll(listPathY, listTarget, item, ListAllPath.size()-1, i+1, ListPostionY,isFull);
                 } else {
                     CustomPathItem customPathItem = ListAllPath.get(postion);
                     customPathItem.getListId().add(i);
@@ -758,7 +759,7 @@ public class NDSTAlgorithm6 {
                         customPathItem.setTime(mListofListPathTime.get(i).get(j));
                         ListAllPathItem.add(customPathItem);
                         //Find same item in other Path
-                        FindPathItemExitInListAll(mListofListPath, mListTarget, item, ListAllPathItem.size() - 1, i + 1, ListPostionY);
+                        FindPathItemExitInListAll(mListofListPath, mListTarget, item, ListAllPathItem.size() - 1, i + 1, ListPostionY,isFull);
                     } else {
                         CustomPathItem customPathItem = ListAllPathItem.get(postion);
                         customPathItem.getListId().add(i);
@@ -963,9 +964,7 @@ public class NDSTAlgorithm6 {
 
         
         //Free data
-        tempListOfListY = null;
-        tempListOfListTi = null;
-                
+
 
     }
 
@@ -1464,7 +1463,7 @@ public class NDSTAlgorithm6 {
                     customPathItem.setTime(returnListTi.get(i).get(j));
                     ListAllPathItem.add(customPathItem);
                     //Find list
-                    FindPathItemExitInListAll(returnListY, mListTarget, item, ListAllPathItem.size()-1, i+1, ListPostionY);
+                    FindPathItemExitInListAll(returnListY, mListTarget, item, ListAllPathItem.size()-1, i+1, ListPostionY,isFull);
                 } else {
                     CustomPathItem customPathItem = ListAllPathItem.get(postion);
                     customPathItem.getListId().add(i);
