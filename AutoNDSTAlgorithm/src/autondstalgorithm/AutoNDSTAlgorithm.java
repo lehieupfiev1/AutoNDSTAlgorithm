@@ -28,6 +28,7 @@ public class AutoNDSTAlgorithm {
      */
     public static ArrayList<Double> listTotalTime;
     public static long timeRuning;
+    public static long timeRunFindPath;
     public static double timeLifeOn;
     public static String mPath = "E:\\HIEU\\CAO HOC\\";
     
@@ -35,10 +36,10 @@ public class AutoNDSTAlgorithm {
 
         // TODO code application logic here
         //NDSTAlgorithm1 algorithm = new NDSTAlgorithm1();
-        NDSTAlgorithm6 algorithm = new NDSTAlgorithm6(); //Tinh all path ngay tu dau
+        NDSTAlgorithm7 algorithm = new NDSTAlgorithm7(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
-        for (int i = 17; i <= 17; i++) {
+        for (int i = 16; i <= 16; i++) {
             try {
                 System.out.println("Test case "+i+"---------------------------");
                 //Cai dat ten File
@@ -70,7 +71,7 @@ public class AutoNDSTAlgorithm {
         FileWriter fw = new FileWriter(filename, true); //the true will append the new data
         fw.write("Test case : "+ postion+"\n");
         fw.write("Sensor="+mListSensorNodes.size() + "  Target="+mListTargetNodes.size()+ "  Sink="+mListSinkNodes.size()+ "  Rs="+mRsValue +"  Rc="+mRcValue +"  MaxHop="+mMaxHopper+ "  L="+Lvalue+"\n");
-        fw.write("Time Run = "+ timeRuning+" , Time Life = "+ timLife+"\n");//appends the string to the file
+        fw.write("TimeFindPath = " + AutoNDSTAlgorithm.timeRunFindPath+" ,Time Run = "+ timeRuning+" , Time Life = "+ timLife+"\n");//appends the string to the file
         fw.write("\n");
         fw.close();
 
