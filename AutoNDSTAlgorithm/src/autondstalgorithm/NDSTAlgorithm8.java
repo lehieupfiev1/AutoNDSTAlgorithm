@@ -1,0 +1,1920 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package autondstalgorithm;
+
+import static autondstalgorithm.SensorUtility.*;
+import static autondstalgorithm.SensorUtility.mListSinkNodes;
+import static autondstalgorithm.SensorUtility.mListTargetNodes;
+import static autondstalgorithm.SensorUtility.mListofListPath;
+import static autondstalgorithm.SensorUtility.mListofListPathTime;
+import ilog.concert.IloException;
+import ilog.concert.IloLinearNumExpr;
+import ilog.concert.IloNumVar;
+import ilog.cplex.IloCplex;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+/**
+ *
+ * @author Hieu
+ */
+public class NDSTAlgorithm8 {
+ public float Distance[][];// Matrix distance between two nodes
+    public float MinDistanceSink[];// Matrix distance between two nodes
+    public float Target[][];// Target nodes
+    public float Point[][];// Total nodes
+    public float Sink[][];// Target covering sensors
+    
+    double mTimeLife;
+    float Rs, Rc;// Rs and Rt value
+    float R; // Tinh phan chia nho nhat
+    int MaxHopper;
+
+    List<List<List<PathItem>>> SaveListofListY;
+    List<List<List<Double>>> SaveListofListTi;
+    List<List<PathItem>> TotalListY;
+    List<List<Integer>> SaveListTarget;
+    List<List<Integer>> SaveListSensor;
+    List<List<Integer>> SaveListSink;
+    List<List<PathItem>> resultListY;
+    List<List<Double>> resultListTi;
+    List<List<Integer>> ListofListNeighbor;
+    List<Integer> mListSensor ;
+    List<Integer> mListTarget ;
+    List<Integer> mListSink ;
+    List<Integer> mListSensing;
+    List<List<Integer>> mListSensingOfTarget;
+    List<CustomPathItem> ListCustomPathItem;
+    List<CustomPathItem> mListAllPathItem; //Luu tat ca cac danh sach cau path
+    List<List<Integer>> mListPosPathOfTarget; //List danh sach path cuat target trong mListAllPathItem 
+    float ListEnergySensor[];
+    float ListEnergyUsing[];
+    int MAX_INTERGER = 100000000;
+    float MAX_FLOAT = 10000000000000.0f;
+    float TimeStamp ;
+    boolean isWidthOptimal = false;
+    boolean isHeightOptimal = false;
+    boolean isFull = false;
+    
+    float Es, Et,Er,Efs,Emp,Do, bit;
+    int cnt;
+    static int countBlock = 0;
+    
+    int K;// Number Sink
+    int N;//Number sensor
+    int TP; // Total points (Contain Sensor , Sink, Target )
+    int T;//Number of Tagert Nodes
+    int Anpha; // So lan tang
+    
+    public NDSTAlgorithm8() {
+        
+    }
+    
+    public void run() {
+        
+        init();
+
+        readData();
+        //Step 1: Find target-covering Sensor
+        //FindTargetCoveringSensor();
+        
+        //Step 2: 
+
+        runAlgorithm();
+        
+        long start3 = System.currentTimeMillis();
+        CoppyToListSensor();
+        long end3 = System.currentTimeMillis();
+        System.out.println("Time coppy :" +(end3-start3));
+//        
+        freeData();
+//        
+        System.gc();
+    }
+    
+    public void init() {
+        resultListY = new ArrayList<>();
+        resultListTi = new ArrayList<>();
+        SaveListofListY = new ArrayList<>();
+        SaveListofListTi = new ArrayList<>();
+        SaveListTarget = new ArrayList<>();
+        SaveListSink = new ArrayList<>();
+        TotalListY = new ArrayList<>();
+        ListofListNeighbor = new ArrayList<>();
+        mListSensor = new ArrayList<>();
+        mListTarget = new ArrayList<>();
+        mListSink = new ArrayList<>();
+        mListSensing = new ArrayList<>();
+        mListSensingOfTarget = new ArrayList<>();
+        ListCustomPathItem = new ArrayList<>();
+        mListAllPathItem = new ArrayList<>();
+    }
+    
+    public  void readData() {
+        // Read Rs, Rc
+        Rs = SensorUtility.mRsValue;
+        Rc = SensorUtility.mRcValue;
+        mTimeLife = 0;
+        MaxHopper = SensorUtility.mMaxHopper;
+        R = Rs + MaxHopper*Rc;
+        
+        //Read constance Energy : Es, Et,Er,Efs,Emp
+        Es = SensorUtility.mEsValue;
+        Et = SensorUtility.mEtValue;
+        Er = SensorUtility.mErValue;
+        Efs = SensorUtility.mEfsValue;
+        Emp = SensorUtility.mEmpValue;
+        Do = (float)Math.sqrt(Efs/Emp);
+        bit = SensorUtility.mBitValue;
+        TimeStamp = SensorUtility.mTstamp;
+        Anpha = SensorUtility.Lvalue;
+                
+        //Read Sensor , Sink, Target 
+        N = SensorUtility.mListSensorNodes.size();
+        T = SensorUtility.mListTargetNodes.size();
+        K = SensorUtility.mListSinkNodes.size();
+        TP = N+ T+ K;
+        
+        //Add to Total Point;
+        Point = new float[TP+1][2];
+        ListEnergySensor = new float[N];
+        ListEnergyUsing = new float[N];
+
+        for (int i =0; i < mListSensorNodes.size();i++) {
+            Point[i][0] = mListSensorNodes.get(i).getX();
+            Point[i][1] = mListSensorNodes.get(i).getY();
+            //Add Energy for every node
+            ListEnergySensor[i] = SensorUtility.mEoValue;
+            ListEnergyUsing[i] = 0;
+        }
+        
+        for (int i =0; i < mListTargetNodes.size();i++) {
+            Point[N+i][0] = mListTargetNodes.get(i).getX();
+            Point[N+i][1] = mListTargetNodes.get(i).getY();
+        }
+        for (int i =0; i < mListSinkNodes.size();i++) {
+            Point[N+T+i][0] = mListSinkNodes.get(i).getX();
+            Point[N+T+i][1] = mListSinkNodes.get(i).getY();
+        }
+
+        // Create matrix distance
+        Distance = new float[TP+1][TP+1];
+         for (int i =0;i<TP;i++) {
+            for (int j =0;j<=i;j++) {
+                if (i==j ) {
+                    Distance[i][j] = 0;
+                } else {
+                    Distance[i][j] = Distance[j][i] = calculateDistance(Point[i][0], Point[i][1], Point[j][0], Point[j][1]);
+                }
+            }
+        }
+         
+        //Caculate Mindistance form sensor to Sink
+        MinDistanceSink = new float[N];
+        float min;
+        for (int i =0; i<N ;i++) {
+            min = MAX_FLOAT;
+            for (int j =0; j < K; j++) {
+                if (Distance[i][N+T+j] < min) {
+                    min = Distance[i][N+T+j];
+                }
+            }
+            MinDistanceSink[i] = min;
+        }
+        
+        //Calculate list node neighbor
+//        ListofListNeighbor.clear();
+//        for (int i =0; i< N; i++) {
+//            List<Integer> listNeighbor = new ArrayList<>();
+//            for (int j =0; j < N; j++) {
+//                if (i != j && Distance[i][j] <= Rc) {
+//                    listNeighbor.add(j);
+//                }
+//            }
+//            ListofListNeighbor.add(listNeighbor);
+//        }
+        
+        //Init resultListY and resultListTi 
+        
+        for (int i = 0 ;i < T; i++) {
+            List<PathItem> pathY = new ArrayList<>();
+            List<Double> timeY = new ArrayList<>();
+            resultListY.add(pathY);
+            resultListTi.add(timeY);
+        }
+
+    }
+    
+    public void freeData() {
+        MinDistanceSink = null;
+        SaveListofListY = null;
+        SaveListofListTi = null;
+        SaveListTarget = null;
+        SaveListSensor = null;
+        Point = null;
+        Distance = null;
+        SaveListSink = null;
+        ListEnergySensor = null;
+        TotalListY = null;
+        ListofListNeighbor = null;
+        mListSensor = null;
+        mListSink = null;
+        mListTarget = null;
+        ListCustomPathItem = null;
+        mListSensingOfTarget = null;
+        mListSensing = null;
+        mListAllPathItem = null;
+    }
+    
+    public  float calculateDistance(float x1, float y1, float x2, float y2) {
+        return (float) Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+    }
+    
+    boolean checkSensorConnectSink(int sensor, List<Integer> listSink) {
+        for (int i =0; i< listSink.size();i++) {
+            if (Distance[sensor][N+T+listSink.get(i)] <= Rc) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    void Finding_CCP(List<Integer> listAllSensor, List<Integer> listTarget, List<Integer> listSink, List<List<PathItem>> ListPathY) {
+        List<List<List<Integer>>> ListPi = new ArrayList<>();
+        List<List<Integer>> ListP = new ArrayList<>();
+        List<List<Integer>> ListParent = new ArrayList<>();
+        
+        //Check null
+        if (listAllSensor.isEmpty() || listTarget.isEmpty() || listSink.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < listAllSensor.size(); i++) {
+            int idSen = listAllSensor.get(i);
+            for (int j = 0; j < listTarget.size(); j++) {
+                if (Distance[idSen][N + listTarget.get(j)] <= Rs) {
+                    mListSensing.add(idSen);
+                    break;
+                }
+            }
+        }
+        
+        
+        //Find ListSensor near Sink
+        List<Integer> listSensorNear = new ArrayList<>();
+        
+        for (int k = 0; k < mListSensing.size(); k++) {
+            int idSensing = mListSensing.get(k);
+            listSensorNear.clear();
+            List<PathItem> listPi = new ArrayList<>();
+            //TH sensing là replay 
+            if (MinDistanceSink[idSensing] <= Rc) {
+                List<Integer> list = new ArrayList<>();
+                list.add(idSensing);
+                PathItem pathItem = new PathItem(list);
+                listPi.add(pathItem);
+                ListPathY.add(listPi);
+                continue;
+            }
+            
+            
+            //Find list Sensor posible
+            for (int j = 0; j < listAllSensor.size(); j++) {
+                int id = listAllSensor.get(j);
+                if (id != idSensing && Distance[idSensing][id] <= (MaxHopper - 1) * Rc) {
+                    listSensorNear.add(id);
+                }
+            }
+
+            //Khoi tao danh sach Pi
+            ListP.clear();
+            ListParent.clear();
+            //System.out.println("Target "+k + " id ="+target);
+            //
+            List<Integer> listParent1 = new ArrayList<>();
+            int num = 0;
+            for (int i = 0; i < listSensorNear.size(); i++) {
+                if (Distance[idSensing][listSensorNear.get(i)] <= Rc) {
+                    List<Integer> list = new ArrayList<>();
+                    list.add(idSensing);
+                    list.add(listSensorNear.get(i));
+                    listParent1.add(listSensorNear.get(i));
+
+                    if (MinDistanceSink[listSensorNear.get(i)] <= Rc) {
+                        PathItem p = new PathItem(list);
+                        listPi.add(p);
+                    } else {
+                        ListP.add(list);
+                        num++;
+                    }
+
+                }
+            }
+            for (int j = 0; j < num; j++) {
+                ListParent.add(listParent1);
+            }
+
+            while (!ListP.isEmpty()) {
+                List<Integer> headP = ListP.get(0);
+                List<Integer> headParent = ListParent.get(0);
+                int lastSensor = headP.get(headP.size() - 1); // Lay phan tu cuoi cung cua head
+
+                if (MinDistanceSink[lastSensor] <= Rc) {
+                    listPi.add(new PathItem(headP));
+                    ListP.remove(0);
+                    ListParent.remove(0);
+                    continue;
+                }
+
+                if (headP.size() == MaxHopper) {
+                    ListP.remove(0);
+                    ListParent.remove(0);
+                } else {
+                    List<Integer> listParent = new ArrayList<>();
+                    for (int j = 0; j < headParent.size(); j++) {
+                        listParent.add(headParent.get(j));
+                    }
+                    int count = 0;
+                    for (int i = 0; i < listSensorNear.size(); i++) {
+                        if (lastSensor != listSensorNear.get(i) && Distance[lastSensor][listSensorNear.get(i)] <= Rc) {
+
+                            if (!checkPointExitInList(listSensorNear.get(i), headParent)) {
+                                // Coppy to new Array
+                                List<Integer> list = new ArrayList<>();
+                                for (int j = 0; j < headP.size(); j++) {
+                                    list.add(headP.get(j));
+                                }
+                                list.add(listSensorNear.get(i));
+                                listParent.add(listSensorNear.get(i));
+                                count++;
+
+                                //Add list to P
+                                ListP.add(list);
+                            }
+
+                        }
+
+                    }
+                    for (int j = 0; j < count; j++) {
+                        ListParent.add(listParent);
+                    }
+                    ListP.remove(0);
+                    ListParent.remove(0);
+
+                }
+
+            }
+            
+            ListPathY.add(listPi);
+
+        }
+        
+        System.gc();
+        
+    }
+    
+    void Getting_CCP(List<List<PathItem>> TotalListY, List<Integer> listTarget, List<List<PathItem>> ListTargetY) {
+        
+        for (int i =0; i < listTarget.size(); i++) {
+            int id = listTarget.get(i);
+            List<PathItem> Yi = new ArrayList<>();
+            List<Integer> listSening = mListSensingOfTarget.get(id);
+            for (int j =0; j < listSening.size(); j++) {
+                int pos = getPointExitInList(listSening.get(j), mListSensing);
+                List<PathItem> path = TotalListY.get(pos);
+                for (int k =0; k < path.size();k++) {
+                    Yi.add(path.get(k));
+                }
+            }
+            //Get List PathItem of id target in TotalListTarget
+            ListTargetY.add(Yi);
+        }
+        
+    }
+    
+    boolean checkPointExitInList(int point , List<Integer> listPoint ) {
+        for (int i = 0 ; i < listPoint.size(); i++) {
+            if (point == listPoint.get(i)) return true;
+        }
+        return false;
+    }
+    
+    int getPointExitInList(int point , List<Integer> listPoint ) {
+        for (int i = 0 ; i < listPoint.size(); i++) {
+            if (point == listPoint.get(i)) return i;
+        }
+        return -1;
+    }
+    
+    float TranferEnergy(float distance) {
+        float result = Et;
+        if (distance <Do) {
+            result+= (Efs*distance*distance);
+        } else {
+            result+= (Emp*distance*distance*distance*distance);
+        }
+        return result;
+    }
+    float CaculateEnergyConsume(List<List<Integer>> ListPath,int sensor) {
+        List<Integer> path;
+        float result =0;
+        for (int i =0 ; i < ListPath.size(); i++) {
+            path = ListPath.get(i);
+            for (int j =0; j<path.size();j++) {
+                if (j == 0 && sensor == path.get(j)) {
+                    //TH sensor la sensing node
+                    result += bit*Es;
+                    if (path.size()== 1) {
+                        result += bit*TranferEnergy(MinDistanceSink[sensor]);
+                    } else {
+                        result += bit*TranferEnergy(Distance[sensor][path.get(j+1)]);
+                    }
+                    
+                    break;
+                } else if (sensor == path.get(j)) {
+                    //TH sensor laf relay node
+                    result += bit*Er;
+                    if (j == path.size()-1) {
+                        result += bit*TranferEnergy(MinDistanceSink[sensor]);
+                    } else {
+                        result += bit*TranferEnergy(Distance[sensor][path.get(j+1)]);
+                    }
+                    break;
+                }
+            }
+            
+        }
+        return result;
+    }
+    
+    int checkExitPathItemInList(PathItem item, List<CustomPathItem> listCustomAllPath) {
+        List<Integer> listSensor = item.getPath();
+        for (int i = 0; i < listCustomAllPath.size(); i++) {
+            CustomPathItem customPathItem = listCustomAllPath.get(i);
+            List<Integer> listTempSensor = customPathItem.getPathItem().getPath();
+            int count = 0;
+            if (listSensor.size() == listTempSensor.size()) {
+                for (int j = 0; j < listSensor.size(); j++) {
+                    if (Objects.equals(listSensor.get(j), listTempSensor.get(j))) {
+                        count++;
+                    }
+                }
+            }
+            if (count == listSensor.size()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    void FindPathItemExitInListAll(List<List<PathItem>> listPathY, List<Integer> listTarget,PathItem item, int postion, int startFrom,List<List<Integer>> ListPostionY ,boolean isFull) {
+        if (item == null || item.size() == 0) return;
+        int sensingId = item.getPath().get(0);
+        List<Integer> listPos = new ArrayList<>();
+        
+        //Kiem xem target nao co the bi sensing phu (bat dau tu startFrom)
+        for (int i =startFrom; i < listTarget.size(); i++) {
+            int idTarget = listTarget.get(i);
+            if (isFull) { // for test
+                listPos.add(i);
+            } else if (Distance[sensingId][N+idTarget] <= Rs) {
+                listPos.add(i);
+            }
+        }
+        
+        //Kiem tra tung PathItem ben trong ListPathY (theo ListPo)
+        
+        for (int i =0; i< listPos.size(); i++) {
+            int pos = listPos.get(i);
+            List<PathItem> pathY = listPathY.get(pos);
+            for (int j =0; j < pathY.size(); j++) {
+                PathItem temItem =pathY.get(j);
+                if (PathItem.compareSame(temItem, item)) {
+                    //Kiem tra 2 path trung nhau
+                    List<Integer> postionY = ListPostionY.get(pos);
+                    postionY.remove(j);
+                    postionY.add(j, postion);
+                }
+                
+            }
+            
+        }
+        
+        
+    }
+    
+    public List<List<Double>> LinearProAlgorithm(List<List<PathItem>> listPathY, List<Integer> listSenSor,List<Integer> listTarget, double valueE0, boolean isFull) {
+        List<List<Double>> ListTime = new ArrayList<>();
+        int n = listPathY.size(); // Number target
+        int m = listSenSor.size(); // Number sensor
+        int Vmax =0;
+
+        System.out.println();
+
+        if (m == 0 || n == 0) {
+            return ListTime;
+        }
+        int totalpath =0;
+        int[] v = new int[n];
+        for (int i = 0; i < listPathY.size(); i++) {
+            v[i] = listPathY.get(i).size();
+            if (Vmax < listPathY.get(i).size()) {
+                Vmax = listPathY.get(i).size();
+            }
+            int id = listTarget.get(i);
+            System.out.println("Target "+i+ " id ="+id+" (X ="+ mListTargetNodes.get(id).getX()+" ,Y ="+ mListTargetNodes.get(id).getY()+")"+ " sizePath ="+ v[i]);
+            totalpath += v[i];
+        }
+        System.out.println("Total Path " + totalpath);
+        
+        //tao list luu vi tri trung nhau
+        List<List<Integer>> ListPostionY = new ArrayList<>();
+        for (int i =0; i < listPathY.size(); i++) {
+            List<PathItem> PathY = listPathY.get(i);
+            List<Integer> postionY = new ArrayList<>();
+            for (int j =0; j< PathY.size(); j++) {
+                postionY.add(-1);
+            }
+            ListPostionY.add(postionY);
+        }
+                
+        
+        //Check Input
+        List<CustomPathItem> ListAllPath = new ArrayList<>();
+        List<List<Integer>> ListofListPathOfTarget = new ArrayList<>();
+        //Add New
+        // Find listSensing from lisst target
+        List<Integer> listSn = new ArrayList<>();
+        for (int i =0; i < mListSensing.size(); i++) {
+            for (int j = 0 ; j < listTarget.size();j++) {
+                if (Distance[mListSensing.get(i)][N+listTarget.get(j)] <= Rs) {
+                    listSn.add(mListSensing.get(i));
+                    break;
+                }
+            }
+        }
+        
+        for (int i = 0; i <listTarget.size(); i++) {
+            List<Integer> pathOftarget = new ArrayList<>();
+            ListofListPathOfTarget.add(pathOftarget);
+        }
+        
+        //Find target of sensing
+        List<List<Integer>> listTargetOfSensing = new ArrayList<>();
+        for (int i =0; i< listSn.size();i++) {
+            List<Integer> targetOfSen = new ArrayList<>();
+            for (int j =0; j< listTarget.size(); j++) {
+                if (Distance[listSn.get(i)][N+listTarget.get(j)] <= Rs) {
+                    targetOfSen.add(j);
+                }
+            }
+            listTargetOfSensing.add(targetOfSen);
+        }
+        
+        //Add cac path thanh custom path
+        
+        for (int i =0; i < listSn.size(); i++) {
+            int idSen = listSn.get(i);
+            int pos = getPointExitInList(idSen, mListSensing);
+            List<PathItem> listPath = TotalListY.get(pos);
+            List<Integer> targetOfSensing = listTargetOfSensing.get(i);
+            for (int j =0; j < listPath.size(); j++) {
+                List<Integer> listId = new ArrayList<>();
+                for (int k =0; k < targetOfSensing.size(); k++) {
+                    listId.add(targetOfSensing.get(k));
+                    List<Integer> pathOftarget = ListofListPathOfTarget.get(targetOfSensing.get(k));
+                    pathOftarget.add(ListAllPath.size());
+                }
+                CustomPathItem customPathItem = new CustomPathItem(listId, listPath.get(j));
+                ListAllPath.add(customPathItem);
+                
+            }
+        }
+        
+        
+//        for (int i = 0; i <listPathY.size(); i++) {
+//            List<PathItem> PathY = listPathY.get(i);
+//            List<Integer> ListPathOfTarget  = new ArrayList<>();
+//            for (int j =0; j < PathY.size(); j++) {
+//                PathItem item = PathY.get(j);
+//                
+//                //int postion = checkExitPathItemInList(item, ListAllPath);
+//                int postion = -1;
+//                if (isFull) {
+//                    //for test;
+//                    postion = checkExitPathItemInList(item, ListAllPath);
+//                } else {
+//                    postion = ListPostionY.get(i).get(j);
+//                }
+//                if (postion == -1) {
+//                    List<Integer> listId = new ArrayList<>();
+//                    listId.add(i);
+//                    CustomPathItem customPathItem = new CustomPathItem(listId, item);
+//                    ListPathOfTarget.add(ListAllPath.size());
+//                    ListAllPath.add(customPathItem);
+//                    //Find same item in other Path
+//                    FindPathItemExitInListAll(listPathY, listTarget, item, ListAllPath.size()-1, i+1, ListPostionY,isFull);
+//                } else {
+//                    CustomPathItem customPathItem = ListAllPath.get(postion);
+//                    customPathItem.getListId().add(i);
+//                    ListPathOfTarget.add(postion);
+//                }
+//            }
+//            // Add to List of  List Path of target
+//            ListofListPathOfTarget.add(ListPathOfTarget);
+//
+//        }
+        System.out.println("Total Path Tong hop " + ListAllPath.size());
+      
+        try {
+            //Init model
+            IloCplex cplex = new IloCplex();
+
+            //Define variable
+            int Max =ListAllPath.size();
+            IloNumVar[] t = new IloNumVar[Max];
+            
+      
+            for (int j = 0; j < Max; j++) {
+                t[j] = cplex.numVar(0, Float.MAX_VALUE);
+            }
+
+            //Define Objective
+            IloNumVar object = cplex.numVar(0, Float.MAX_VALUE);
+            IloLinearNumExpr objective = cplex.linearNumExpr();
+            objective.addTerm(1.0, object);
+            
+            cplex.addMaximize(objective);
+            
+            //Contraint
+            //Energy of Sensor <= Eo
+            for (int i = 0; i < m; i++) {
+                IloLinearNumExpr arrayExpress = cplex.linearNumExpr();
+                int sensor = listSenSor.get(i);
+                for (int j = 0; j < Max; j++) {
+                    CustomPathItem customPathItem = ListAllPath.get(j);
+                    List<Integer> listPa = customPathItem.getPathItem().getPath();
+                    float value = getEnergyConsumer(listPa, sensor);
+
+                    arrayExpress.addTerm(value, t[j]);
+
+                }
+                cplex.addLe(arrayExpress, valueE0);
+            }
+            
+            //Time On of target <= Object
+            IloLinearNumExpr[] express = new IloLinearNumExpr[n];
+            for (int j = 0; j < n; j++) {
+                express[j] = cplex.linearNumExpr();
+                List<Integer> listOfPathTarget = ListofListPathOfTarget.get(j);
+                for (int k = 0; k <listOfPathTarget.size(); k++) {
+                    express[j].addTerm(1.0, t[listOfPathTarget.get(k)]);
+                }
+                cplex.addLe(object,express[j]);
+
+            }
+
+            cplex.setParam(IloCplex.Param.Simplex.Display, 0);
+            
+            if (cplex.solve()) {
+
+                System.out.println("value: " + cplex.getObjValue());
+                double[] Time = new double[n];
+                
+                //Reduce variable =0;
+                int cnt =0;
+                for (int j = 0; j < ListAllPath.size();) {
+                    if (cplex.getValue(t[cnt]) > 0) {
+                        CustomPathItem customPathItem = ListAllPath.get(j);
+                        customPathItem.setTime(cplex.getValue(t[cnt]));
+                        j++;
+                    } else {
+                        ListAllPath.remove(j);
+                    }
+                    cnt++;
+                }
+                
+                //Convert to ListY and ListTime
+                //Clear data 
+                for (int i =0; i < listPathY.size(); i++) {
+                    List<PathItem> pathY = listPathY.get(i);
+                    pathY.clear();
+                    List<Double> time = new ArrayList<>();
+                    ListTime.add(time);
+                }
+                //Coppy to ListY and ListTime
+                for (int i =0 ; i < ListAllPath.size();i++) {
+                    CustomPathItem customPathItem = ListAllPath.get(i);
+                    List<Integer> listTagetId = customPathItem.getListId();
+                    for (int j =0; j < listTagetId.size(); j++) {
+                        int id = listTagetId.get(j);
+                        List<Integer> path = customPathItem.getPathItem().getPath();
+                        List<Integer> tempPath = new ArrayList<>();
+                        
+                        for (int k =0; k <path.size();k++) {
+                            tempPath.add(path.get(k));
+                        }
+                        PathItem pathItem = new PathItem(tempPath);
+                        double time = customPathItem.getTime();
+                        listPathY.get(id).add(pathItem);
+                        ListTime.get(id).add(time);
+                    }
+                }
+                
+                //test print result
+                for (int i =0 ; i < listPathY.size();i++) {
+                    List<PathItem> pathY = listPathY.get(i);
+                    List<Double> time = ListTime.get(i);
+                    for (int j =0; j < pathY.size(); j++) {
+                        System.out.print(" "+time.get(j));
+                    }
+                    System.out.println();
+                }
+
+                //return cplex.getValue(objective);        
+            } else {
+                System.out.println("Problem not solved");
+            }
+
+            cplex.end();
+
+        } catch (IloException ex) {
+            Logger.getLogger("LeHieu").log(Level.SEVERE, null, ex);
+        }
+        //Free data
+        v = null; 
+        ListAllPath = null;
+        ListofListPathOfTarget = null;
+        return ListTime;
+    }
+     
+    float getEnergyConsumer(List<Integer> pathYi, int sensor) {
+        float result = 0;
+        for (int i =0; i< pathYi.size(); i++) {
+            if (i==0 && pathYi.get(i) == sensor ) {
+                result += bit * Es;
+                if (pathYi.size() == 1) {
+                    result += bit * TranferEnergy(MinDistanceSink[sensor]);
+                } else {
+                    result += bit * TranferEnergy(Distance[sensor][pathYi.get(i + 1)]);
+                }
+                return result;
+            } else if (pathYi.get(i) == sensor) {
+                result += bit * Er;
+                if (i == pathYi.size() - 1) {
+                    result += bit * TranferEnergy(MinDistanceSink[sensor]);
+                } else {
+                    result += bit * TranferEnergy(Distance[sensor][pathYi.get(i + 1)]);
+                }
+                return result;
+            }
+        }
+        return 0.0f;
+    }
+    
+    float getMin(float a , float b) {
+        if (a < b) {
+            return a;
+        }
+        return b;
+    }
+    float getMax(float a , float b) {
+        if (a > b) {
+            return a;
+        }
+        return b;
+    }
+    public void CoppyToListSensor() {
+        mListofListPath.clear();
+        mListofListPath = resultListY;
+        SensorUtility.mListofListPathTime = resultListTi;
+        
+       //Create: List All Path and Time
+        List<CustomPathItem> ListAllPathItem ;
+        if (ListCustomPathItem.isEmpty()) {
+            ListAllPathItem = new ArrayList<>();
+
+            List<List<Integer>> ListPostionY = new ArrayList<>();
+            for (int i = 0; i < mListofListPath.size(); i++) {
+                List<PathItem> PathY = mListofListPath.get(i);
+                List<Integer> postionY = new ArrayList<>();
+                for (int j = 0; j < PathY.size(); j++) {
+                    postionY.add(-1);
+                }
+                ListPostionY.add(postionY);
+            }
+
+            for (int i = 0; i < mListofListPath.size(); i++) {
+                List<PathItem> PathY = mListofListPath.get(i);
+                for (int j = 0; j < PathY.size(); j++) {
+                    PathItem item = PathY.get(j);
+                    int postion = -1;
+                    if (isFull) {
+                        //for test;
+                        postion = checkExitPathItemInList(item, ListAllPathItem);
+                    } else {
+                        postion = ListPostionY.get(i).get(j);
+                    }
+                    //int postion = checkExitPathItemInList(item, ListAllPathItem);
+                    if (postion == -1) {
+                        List<Integer> listId = new ArrayList<>();
+                        listId.add(i);
+                        CustomPathItem customPathItem = new CustomPathItem(listId, item);
+                        customPathItem.setTime(mListofListPathTime.get(i).get(j));
+                        ListAllPathItem.add(customPathItem);
+                        //Find same item in other Path
+                        FindPathItemExitInListAll(mListofListPath, mListTarget, item, ListAllPathItem.size() - 1, i + 1, ListPostionY,isFull);
+                    } else {
+                        CustomPathItem customPathItem = ListAllPathItem.get(postion);
+                        customPathItem.getListId().add(i);
+                    }
+                }
+            }
+        } else {
+            ListAllPathItem = ListCustomPathItem;
+        }
+       
+       //Calculate Energy using of Sensor
+        for (int j = 0; j < ListAllPathItem.size(); j++) {
+            PathItem path = ListAllPathItem.get(j).getPathItem();
+            double time = ListAllPathItem.get(j).getTime();
+            List<Integer> listPoint = path.getPath();
+            for (int k = 0; k < listPoint.size(); k++) {
+                int point = listPoint.get(k);
+                ListEnergyUsing[point] += (getEnergyConsumer(listPoint, point) * time);
+            }
+        }
+        System.out.println("Nang luong cua cac Sensor :--------------");
+        for (int i =0 ; i < ListEnergySensor.length;i++) {
+            System.out.print(ListEnergyUsing[i]/1000000000+" ");
+        }
+        System.out.println();
+    }
+    
+    public void FindingAllCustomPath(List<Integer> listSensing, List<Integer> listTarget, List<List<PathItem>> ListPathY, List<CustomPathItem> listAllPathItem) {
+        int count = 0;
+        for (int i = 0; i < ListPathY.size(); i++) {
+            List<PathItem> PathY = ListPathY.get(i);
+            int idSensing = listSensing.get(i);
+            //Find list Target duoc phu boin idSening
+            List<Integer> listIdTarget = new ArrayList<>();
+            for (int j = 0; j < listTarget.size(); j++) {
+                if (Distance[idSensing][N + listTarget.get(j)] <= Rs) {
+                    listIdTarget.add(listTarget.get(j));
+                }
+            }
+            //Add lan luot cac phan tu vao path
+            for (int j = 0; j < PathY.size(); j++) {
+                PathItem pathItem = PathY.get(j);
+                CustomPathItem customPathItem = new CustomPathItem(count, listIdTarget, pathItem, 0);
+                for (int k = 0; k < listIdTarget.size(); k++) {
+                    int idTar = listIdTarget.get(k);
+                    List<Integer> listPos = mListPosPathOfTarget.get(idTar);
+                    listPos.add(count);
+                }
+                listAllPathItem.add(customPathItem);
+                count++;
+            }
+        }
+
+    }
+    
+    public void runAlgorithm() {
+        mListSensor.clear();
+        for (int i = 0; i < mListSensorNodes.size(); i++) {
+            mListSensor.add(i);
+        }
+        
+        mListTarget.clear();
+        for (int i = 0; i < mListTargetNodes.size(); i++) {
+            mListTarget.add(i);
+        }
+
+        mListSink.clear();
+        for (int i = 0; i < mListSinkNodes.size(); i++) {
+            mListSink.add(i);
+        }
+        long start = System.currentTimeMillis();
+        //Find listSensing of target
+        for (int i =0; i < mListTarget.size(); i++) {
+            int idTarget = mListTarget.get(i);
+            List<Integer> listSensing = new ArrayList<>();
+            for (int j =0; j< mListSensor.size(); j++) {
+                if (Distance[mListSensor.get(j)][N+idTarget] <=Rs) {
+                    listSensing.add(mListSensor.get(j));
+                }
+                
+            }
+            mListSensingOfTarget.add(listSensing);
+            
+            //Create list postion Path of target
+            List<Integer> listPos = new ArrayList<>();
+            mListPosPathOfTarget.add(listPos);
+            
+        }
+        
+
+        
+        
+        //Calculate total Path in network
+        
+        Finding_CCP(mListSensor, mListTarget, mListSink, TotalListY);
+        
+        long end = System.currentTimeMillis();
+        AutoNDSTAlgorithm.timeRunFindPath = end - start;
+        System.out.println("Time run find path ="+AutoNDSTAlgorithm.timeRunFindPath);
+        
+        List<List<List<PathItem>>> tempListOfListY = new ArrayList<>();
+        List<List<List<Double>>> tempListOfListTi = new ArrayList<>();
+        
+//        List<List<List<PathItem>>> ListOfListY = new ArrayList<>();
+//        List<List<List<Double>>> ListOfListTi = new ArrayList<>();
+        long start1 = System.currentTimeMillis();
+        float MaxSizeBlock = 2*R*Anpha;
+        FloatPointItem tmpUpPoint = new FloatPointItem(0, 0);
+        FloatPointItem tmpDownPoint = new FloatPointItem(MaxSizeBlock, MaxSizeBlock);
+        List<Integer> tmpListSensor = FindListSensor(tmpUpPoint, tmpDownPoint);
+        List<Integer> tmpListTarget = FindListTarget(tmpUpPoint, tmpDownPoint);
+        List<Integer> tmpListSink = FindListSink(tmpUpPoint, tmpDownPoint);
+        
+        if (tmpListSensor.size() != mListSensor.size() || tmpListTarget.size() != mListTarget.size() || tmpListSink.size() != mListSink.size() ) {
+            isFull = false;
+            List<Thread> mListThread = new ArrayList<>();
+
+            int X = (int) Math.ceil(SensorUtility.numberRow / (2 * R)) + Anpha - 1;
+            int Y = (int) Math.ceil(SensorUtility.numberColum / (2 * R)) + Anpha - 1;
+            countBlock = 0;
+            for (int i = 1; i <= X; i++) {
+                for (int j = 1; j <= Y; j++) {
+                    //Tao thread
+                    float x1 = getMax(0, -2 * Anpha * R + 2 * i * R);
+                    float y1 = getMax(0, -2 * Anpha * R + 2 * j * R);
+
+                    float x2 = getMin(2 * i * R, SensorUtility.numberRow);
+                    float y2 = getMin(2 * j * R, SensorUtility.numberColum);
+                    if (x2 > x1 && y2 > y1) {
+
+                        FloatPointItem upPoint = new FloatPointItem(x1, y1);
+                        FloatPointItem downPoint = new FloatPointItem(x2, y2);
+                        List<Integer> tempListTarget = FindListTarget(upPoint, downPoint);
+                        if (!tmpListTarget.isEmpty()) {
+                            //Kiem tra khoi la full mang
+                            Thread thread = new Thread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    //Find ListSensor in Block                                
+
+                                    List<Integer> tempListSensor = FindListSensor(upPoint, downPoint);
+
+                                    //List<Integer> tempListSink = FindListSink(upPoint, downPoint);
+                                    //Get List
+                                    List<List<PathItem>> ListPathY = new ArrayList<>();
+                                    List<List<Double>> ListTi;
+                                    Getting_CCP(TotalListY, tempListTarget, ListPathY);
+
+                                    ListTi = LinearProAlgorithm(ListPathY, tempListSensor, tempListTarget, SensorUtility.mEoValue, false);
+
+                                    //Init tempListTi and tempListY
+                                    List<List<PathItem>> tempListY = new ArrayList<>();
+                                    List<List<Double>> tempListTi = new ArrayList<>();
+                                    for (int i = 0; i < T; i++) {
+                                        List<PathItem> Yi = new ArrayList<>();
+                                        tempListY.add(Yi);
+
+                                        //Ti
+                                        List<Double> Ty = new ArrayList<>();
+                                        tempListTi.add(Ty);
+                                    }
+
+                                    //Add data from  ListPathY and List Ti
+                                    if (ListPathY.size() == tempListTarget.size()) {
+                                        for (int i = 0; i < tempListTarget.size(); i++) {
+                                            int pos = tempListTarget.get(i);
+                                            tempListY.remove(pos);
+                                            tempListY.add(pos, ListPathY.get(i));
+
+                                            tempListTi.remove(pos);
+                                            tempListTi.add(pos, ListTi.get(i));
+                                        }
+                                    } else {
+                                        System.out.println("Size ListY khac size Target : " + ListPathY.size() + " - " + tempListTarget.size());
+                                    }
+
+                                    //Add result of Block
+                                    countBlock++;
+                                    System.out.println("Khoi :" + countBlock);
+                                    System.out.println("Toa do : (" + upPoint.getX() + " , " + upPoint.getY() + ") - (" + downPoint.getX() + " , " + downPoint.getY() + ")");
+                                    if (!tempListTarget.isEmpty() && !ListPathY.isEmpty()) {
+                                        System.out.println("Start add :" + countBlock);
+                                        tempListOfListY.add(tempListY);
+                                        tempListOfListTi.add(tempListTi);
+                                        System.out.println("End add :" + countBlock);
+                                    } else if (!tempListTarget.isEmpty() && tempListY.isEmpty()) {
+                                        System.err.println("Khong ton tai duong di");
+                                    }
+                                }
+
+                            });
+                            thread.start();
+                            mListThread.add(thread);
+                        }
+                    }
+
+                }
+
+            }
+
+            //Set main thread wait
+            for (int i = 0; i < mListThread.size(); i++) {
+                Thread thread = mListThread.get(i);
+                try {
+                    thread.join();
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(NDSTAlgorithm6.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            }
+        } else {
+            isFull = true;
+            List<List<PathItem>> ListPathY = new ArrayList<>();
+            List<List<Double>> ListTi;
+            Getting_CCP(TotalListY, mListTarget, ListPathY);
+
+            ListTi = LinearProAlgorithm(ListPathY, mListSensor, mListTarget, SensorUtility.mEoValue, true);
+
+            //Init tempListTi and tempListY
+            List<List<PathItem>> tempListY = new ArrayList<>();
+            List<List<Double>> tempListTi = new ArrayList<>();
+            for (int i = 0; i < T; i++) {
+                List<PathItem> Yi = new ArrayList<>();
+                tempListY.add(Yi);
+
+                //Ti
+                List<Double> Ty = new ArrayList<>();
+                tempListTi.add(Ty);
+            }
+
+            //Add data from  ListPathY and List Ti
+            if (ListPathY.size() == mListTarget.size()) {
+                for (int i = 0; i < mListTarget.size(); i++) {
+                    int pos = mListTarget.get(i);
+                    tempListY.remove(pos);
+                    tempListY.add(pos, ListPathY.get(i));
+
+                    tempListTi.remove(pos);
+                    tempListTi.add(pos, ListTi.get(i));
+                }
+            }
+            if (!mListTarget.isEmpty() && !ListPathY.isEmpty()) {
+                System.out.println("Start add :" );
+                tempListOfListY.add(tempListY);
+                tempListOfListTi.add(tempListTi);
+                System.out.println("End add :");
+            } else if (!mListTarget.isEmpty() && tempListY.isEmpty()) {
+                System.err.println("Khong ton tai duong di");
+            }
+        }
+        long end1 = System.currentTimeMillis();
+        System.out.println("Part time Cplex :" + (end1-start1));
+        
+        long start2 = System.currentTimeMillis();
+        Combining_All_Division(tempListOfListY,tempListOfListTi,resultListY,resultListTi,isFull);
+        long end2 = System.currentTimeMillis();
+        System.out.println("Part time Combine:" + (end2-start2));
+
+        
+        //Free data
+
+
+    }
+
+
+    public  void DiviceNetworkFollowWidth(FloatPointItem UpLeftCornerPoint, FloatPointItem DownRightCornerPoint, int divisons, List<List<PathItem>> returnListY, List<List<Double>> returnListTi) {
+        FloatPointItem upPoint = new FloatPointItem();
+        FloatPointItem downPoint = new FloatPointItem();
+        
+        List<List<List<PathItem>>> tempListOfListY = new ArrayList<>();
+        List<List<List<Double>>> tempListOfListTi = new ArrayList<>();
+        List<List<PathItem>> tempListY;
+        List<List<Double>> tempListT;
+        
+        List<List<List<PathItem>>> temp2ListOfListY = new ArrayList<>();
+        List<List<List<Double>>> temp2ListOfListTi = new ArrayList<>();
+
+        
+        float PostionX = UpLeftCornerPoint.getX();
+        float MaxPostionX = DownRightCornerPoint.getX();
+        boolean isFirstBlock = true;
+        
+        
+        while (PostionX < MaxPostionX)  {
+            //Set upoint and downpoint of Block
+            if (isFirstBlock && divisons != 0) {
+                //Start Point of Block independent of offset value
+                upPoint.setXY(PostionX, UpLeftCornerPoint.getY());
+                PostionX += divisons * 2 * R;
+                if (PostionX >= MaxPostionX) PostionX = MaxPostionX;
+                downPoint.setXY(PostionX, DownRightCornerPoint.getY());
+                isFirstBlock = false;
+            } else {
+                
+                upPoint.setXY(PostionX, UpLeftCornerPoint.getY());
+                PostionX += Anpha*2 * R;
+                if (PostionX >= MaxPostionX) PostionX = MaxPostionX;
+                downPoint.setXY(PostionX, DownRightCornerPoint.getY());
+            }
+            
+            //Caculate result of the Block foreach devisions
+            for (int i =0; i< Anpha;i++) {
+                List<List<PathItem>> temp2returnListX = new ArrayList<>();
+                List<List<Double>> temp2returnListTi = new ArrayList<>();
+                for (int j = 0; j< T;j++) {
+                    List<PathItem> pathY = new ArrayList<>();
+                    List<Double> timeY = new ArrayList<>(); 
+                    temp2returnListX.add(pathY);
+                    temp2returnListTi.add(timeY);
+                }
+                DiviceNetWorkFollowHeight(upPoint,downPoint,i,temp2returnListX,temp2returnListTi);
+                if (!temp2returnListX.isEmpty() && !temp2returnListTi.isEmpty()) {
+                    if (CheckEnergyMoreThanEo(temp2returnListX, temp2returnListTi)) {
+                        isHeightOptimal = false;
+                        temp2ListOfListY.add(temp2returnListX);
+                        temp2ListOfListTi.add(temp2returnListTi);
+                    } else {
+                        isHeightOptimal = true; //Tim thay nghiem toi uu
+                        temp2ListOfListY.clear();
+                        temp2ListOfListTi.clear();
+                        temp2ListOfListY.add(temp2returnListX);
+                        temp2ListOfListTi.add(temp2returnListTi);
+                        break;
+                    }
+                }
+            }
+            tempListY = new ArrayList<>();
+            tempListT = new ArrayList<>();
+            
+            for (int j = 0; j< T;j++) {
+                    List<PathItem> pathY = new ArrayList<>();
+                    List<Double> timeY = new ArrayList<>(); 
+                    tempListY.add(pathY);
+                    tempListT.add(timeY);
+            }
+            if (!isHeightOptimal) {
+                Combining_All_Division(temp2ListOfListY, temp2ListOfListTi, tempListY, tempListT, false);
+            } else {
+                System.out.println("Found case optimize follow height");
+                tempListY = temp2ListOfListY.get(0);
+                tempListT = temp2ListOfListTi.get(0);
+                isHeightOptimal = false;
+            }
+            temp2ListOfListY.clear();
+            temp2ListOfListTi.clear();
+            if (!tempListY.isEmpty() && !tempListT.isEmpty()) {
+               tempListOfListY.add(tempListY);
+               tempListOfListTi.add(tempListT);
+            }
+        }
+        
+        //Combining all strips follow the with of netwwork
+        Combining_All_Strips(tempListOfListY, tempListOfListTi, returnListY, returnListTi);
+        
+        //Free Data
+        tempListOfListY = null;
+        tempListOfListTi = null;
+        tempListY = null;
+        tempListT = null;
+        temp2ListOfListY = null;
+        temp2ListOfListTi = null;
+    }
+    
+    public void DiviceNetWorkFollowHeight(FloatPointItem UpLeftCornerPoint, FloatPointItem DownRightCornerPoint, int division, List<List<PathItem>> returnListY, List<List<Double>> returnListTi) {
+        
+        FloatPointItem upPoint = new FloatPointItem();
+        FloatPointItem downPoint = new FloatPointItem();
+        
+        List<List<List<PathItem>>> tempListOfListY = new ArrayList<>();
+        List<List<List<Double>>> tempListOfListTi = new ArrayList<>();
+        List<List<PathItem>> tempListY;
+        List<List<Double>> tempListTi;
+        
+
+        float PostionY = UpLeftCornerPoint.getY();
+        float MaxPostionY = DownRightCornerPoint.getY();
+        boolean isFirstBlock = true;
+        
+        while (PostionY < MaxPostionY)  {
+            //Set upoint and downpoint of Block
+            if (isFirstBlock && division != 0) {
+                //Start Point of Block independent of divison value
+                upPoint.setXY(UpLeftCornerPoint.getX(), PostionY);
+                PostionY += division * 2 * R;
+                if (PostionY >= MaxPostionY) PostionY = MaxPostionY;
+                downPoint.setXY(DownRightCornerPoint.getX(), PostionY);
+                isFirstBlock = false;
+            } else {
+                
+                upPoint.setXY(UpLeftCornerPoint.getX(), PostionY);
+                PostionY += Anpha*2 * R;
+                if (PostionY >= MaxPostionY) PostionY = MaxPostionY;
+                downPoint.setXY(DownRightCornerPoint.getX(), PostionY);
+            }
+
+            //Find ListSensor in Block
+            List<Integer> tempListSensor = FindListSensor(upPoint,downPoint);
+            List<Integer> tempListTarget = FindListTarget(upPoint, downPoint);
+            List<Integer> tempListSink = FindListSink(upPoint, downPoint);
+            //showViewTest(tempListSensor);
+            
+            List<List<PathItem>> ListPathY = new ArrayList<>();
+            List<List<Double>> ListTi;
+            int postion = CheckExitListTargetInSaveList(tempListTarget, tempListSink);
+            //int postion = -1;
+            if (postion == -1) {
+                //Finding_CCP(tempListSensor, tempListTarget, tempListSink, ListPathY);
+                Getting_CCP(TotalListY,tempListTarget,ListPathY);
+
+                ListTi = LinearProAlgorithm(ListPathY, tempListSensor,tempListTarget, SensorUtility.mEoValue,false);
+                reduceListPathYi(ListPathY, ListTi);
+                CoppyListToSave(ListPathY, ListTi, tempListTarget, tempListSink);
+            } else {
+                ListTi = new ArrayList<>();
+                GetListFromSave(ListPathY, ListTi, postion);
+
+            }
+            
+            //Init tempListTi and tempListY
+            tempListY = new ArrayList<>();
+            tempListTi = new ArrayList<>();
+            for (int i =0 ; i< T; i++) {
+                List<PathItem> Yi = new ArrayList<>();
+                tempListY.add(Yi);
+                
+                //Ti
+                List<Double> Ty = new ArrayList<>();
+                tempListTi.add(Ty);
+            }
+            
+            //Add data from  ListPathY and List Ti
+            if (ListPathY.size() == tempListTarget.size()) {
+                for (int i = 0; i < tempListTarget.size(); i++) {
+                    int pos = tempListTarget.get(i);
+                    tempListY.remove(pos);
+                    tempListY.add(pos, ListPathY.get(i));
+
+                    tempListTi.remove(pos);
+                    tempListTi.add(pos, ListTi.get(i));
+                }
+            }
+            
+            //Add result of Block
+            if (!tempListTarget.isEmpty() && !ListPathY.isEmpty()) {
+                tempListOfListY.add(tempListY);
+                tempListOfListTi.add(tempListTi);
+            } else if (!tempListTarget.isEmpty() && tempListY.isEmpty()) {
+                System.err.println("Khong ton tai duong di");
+            }
+            
+            ListPathY = null;
+            ListTi = null;
+
+        }
+        Combining_All_Strips(tempListOfListY, tempListOfListTi, returnListY, returnListTi);
+        
+        //Free Data
+        tempListOfListY = null;
+        tempListOfListTi = null;
+        tempListY = null; 
+        tempListTi = null;
+        upPoint = null;
+        downPoint = null;
+    }
+    
+    void reduceListPathYi(List<List<PathItem>> ListPathY, List<List<Double>> ListTimeY) {
+        for (int i = 0; i< ListPathY.size(); i++) {
+            List<PathItem> pathY = ListPathY.get(i);
+            List<Double> timeListY  = ListTimeY.get(i);
+            // Giam cac TH TY = 0;
+            for (int j =0; j< timeListY.size();) {
+                if (timeListY.get(j) < 0.00001d) {
+                    timeListY.remove(j);
+                    pathY.remove(j);
+                } else {
+                    j++;
+                }
+                
+            }
+            
+        }
+        
+        
+    }
+    
+    public List<Integer> FindListSensor(FloatPointItem UpLeftCornerPoint, FloatPointItem DownRightCornerPoint) {
+        List<Integer> resultListSensor = new ArrayList<>();
+        float Xmax,Xmin,Ymax,Ymin;
+        Xmin = UpLeftCornerPoint.getX() - R;
+        Xmax=  DownRightCornerPoint.getX() + R;
+        Ymin = UpLeftCornerPoint.getY() - R;
+        Ymax = DownRightCornerPoint.getY() +R;
+        
+        for (int i = 0 ;i<mListSensorNodes.size(); i++) {
+            if (mListSensorNodes.get(i).getX() >= Xmin && mListSensorNodes.get(i).getX() < Xmax && mListSensorNodes.get(i).getY() >= Ymin && mListSensorNodes.get(i).getY() < Ymax ) {
+                resultListSensor.add(i);
+            }
+        }
+        return resultListSensor;        
+    }
+    
+    public List<Integer> FindListTarget(FloatPointItem UpLeftCornerPoint, FloatPointItem DownRightCornerPoint) {
+        List<Integer> resultListTarget = new ArrayList<>();
+        float Xmax,Xmin,Ymax,Ymin;
+        Xmin = UpLeftCornerPoint.getX();
+        Xmax=  DownRightCornerPoint.getX();
+        Ymin = UpLeftCornerPoint.getY();
+        Ymax = DownRightCornerPoint.getY();
+        
+        for (int i = 0 ;i<mListTargetNodes.size(); i++) {
+            if (mListTargetNodes.get(i).getX() >= Xmin && mListTargetNodes.get(i).getX() < Xmax && mListTargetNodes.get(i).getY() >= Ymin && mListTargetNodes.get(i).getY() < Ymax ) {
+                resultListTarget.add(i);
+            }
+        }
+        return resultListTarget;        
+    }
+    
+    public List<Integer> FindListSink(FloatPointItem UpLeftCornerPoint, FloatPointItem DownRightCornerPoint) {
+        List<Integer> resultListSink = new ArrayList<>();
+        float Xmax,Xmin,Ymax,Ymin;
+        Xmin = UpLeftCornerPoint.getX() - R-Rc;
+        Xmax=  DownRightCornerPoint.getX() + R+Rc;
+        Ymin = UpLeftCornerPoint.getY() - R-Rc;
+        Ymax = DownRightCornerPoint.getY() +R+Rc;
+        
+        for (int i = 0 ;i<mListSinkNodes.size(); i++) {
+            if (mListSinkNodes.get(i).getX() >= Xmin && mListSinkNodes.get(i).getX() < Xmax && mListSinkNodes.get(i).getY() >= Ymin && mListSinkNodes.get(i).getY() < Ymax ) {
+                resultListSink.add(i);
+            }
+        }
+        return resultListSink;        
+    }
+    
+    public void Combining_All_Strips(List<List<List<PathItem>>> ListOfListY, List<List<List<Double>>> ListOfListTi, List<List<PathItem>> returnListY, List<List<Double>> returnListTi) {
+        int Strip = ListOfListY.size();
+        double Min = Double.MAX_VALUE;
+        //Create ListT Ascending
+        
+        for(int i =0; i<Strip ; i++){
+            List<List<PathItem>> ListPathY = ListOfListY.get(i);
+            List<List<Double>> ListTimeTi = ListOfListTi.get(i);
+             for (int j = 0; j< ListPathY.size();j++) {
+                 List<PathItem> pathY = ListPathY.get(j);
+                 List<PathItem> retPathY = returnListY.get(j);
+                 List<Double> timeY = ListTimeTi.get(j);
+                 List<Double> reTimeY = returnListTi.get(j);
+                 
+                 unionListY(pathY,timeY,retPathY,reTimeY);
+                 
+             }
+            
+            
+        }
+
+    }
+    
+    void unionListY(List<PathItem> inputListY ,List<Double> inputTime, List<PathItem> outputListY, List<Double> outputTime) {
+        if (outputListY.isEmpty()) {
+            for (int i =0; i< inputListY.size();i++) {
+                outputListY.add(inputListY.get(i));
+                outputTime.add(inputTime.get(i));
+            }
+            
+        } else {
+            for (int i =0; i< inputListY.size();i++) {
+                int pos = CheckExitPath(inputListY.get(i), outputListY);
+                if ( pos == -1) {
+                   outputListY.add(inputListY.get(i));
+                   outputTime.add(inputTime.get(i));
+                } else {
+                   double firstTime = outputTime.get(pos);
+                   double second = inputTime.get(i);
+                   outputTime.remove(pos);
+                   outputTime.add(pos, firstTime+second);
+                }
+                
+            }
+            
+        }
+        
+    }
+    
+    int CheckExitPath(PathItem item , List<PathItem> list) {
+        for (int i =0; i < list.size(); i++) {
+            if (PathItem.compareSame(item, list.get(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    //Ghep Xik U Xin....
+    void unionXi(List<Integer> listX, List<Integer> resultListX) {
+        int n = resultListX.size();
+        boolean isExit;
+        for (int i = 0; i < listX.size(); i++) {
+            isExit = false;
+            for (int j = 0; j < n; j++) {
+                if (Objects.equals(listX.get(i), resultListX.get(j))) {
+                    isExit = true;
+                    break;
+                }
+            }
+            if (!isExit) {
+                resultListX.add(listX.get(i));
+            }
+        }
+    }
+    
+
+    //Dua ra vi tri corver segment cua list
+    int getPostionOfList(List<Double> listT, double starTime, double endTime) {
+        for (int i = 0; i < listT.size(); i++) {
+            if (i == 0) {
+                if (listT.get(0) >= endTime) {
+                    return 0;
+                }
+            } else {
+                if (listT.get(i - 1) <= starTime && listT.get(i) >= endTime) {
+                    return i;
+                }
+            }
+        }
+        return 0;
+    }
+    
+    public void Combining_All_Division(List<List<List<PathItem>>> ListOfListY, List<List<List<Double>>> ListOfListT, List<List<PathItem>> returnListY, List<List<Double>> returnListTi,boolean isFull) {
+        //Gop nghiêm lại chia cho L
+        //Reduce năng lượng lớn hơn E0
+        //Tính cả TH có chung path (các path bị gộp lại là 1)
+        for (int i = 0; i< ListOfListY.size();i++) {
+          List<List<PathItem>> tempListPathY = ListOfListY.get(i);
+          List<List<Double>>  tempListTi  =ListOfListT.get(i);
+          for (int j =0 ; j< tempListPathY.size();j++) {
+                 List<PathItem> pathY = tempListPathY.get(j);
+                 List<PathItem> retPathY = returnListY.get(j);
+                 List<Double> timeY = tempListTi.get(j);
+                 List<Double> reTimeY = returnListTi.get(j);
+                 
+                 unionListY(pathY, timeY, retPathY, reTimeY);
+              
+          }
+        }
+       // Divice Time to (mLvalue)
+        for (int i = 0; i < returnListTi.size(); i++) {
+           List<Double> reTimeY = returnListTi.get(i);
+            for (int j = 0; j < reTimeY.size(); j++) {
+                Double x;
+                if (!isFull) {
+                    x = reTimeY.get(j) / (Anpha * Anpha);
+                } else {
+                    x = reTimeY.get(j);  
+                }
+                reTimeY.remove(j);
+                reTimeY.add(j, x);
+            }
+        }
+       
+       //Tim list sensor in all Path
+       List<Integer> listSensorInAllPath = new ArrayList<>();
+       FindListSensorInAllPath(returnListY,listSensorInAllPath);
+       
+       if (listSensorInAllPath.isEmpty()) return;
+       //Tao list Energy tuong ung voi cac sensor      
+       List<EnergyItem> listEnergy = new ArrayList<>();
+       for (int i = 0; i < listSensorInAllPath.size();i++) {
+           EnergyItem energyItem = new EnergyItem(listSensorInAllPath.get(i), 0);
+           listEnergy.add(energyItem);
+       }
+       
+        //tao list luu vi tri trung nhau
+        List<List<Integer>> ListPostionY = new ArrayList<>();
+        for (int i =0; i < returnListY.size(); i++) {
+            List<PathItem> PathY = returnListY.get(i);
+            List<Integer> postionY = new ArrayList<>();
+            for (int j =0; j< PathY.size(); j++) {
+                postionY.add(-1);
+            }
+            ListPostionY.add(postionY);
+        }
+        
+       //Create: List All Path and Time
+       List<CustomPathItem> ListAllPathItem = new ArrayList<>();
+       for (int i = 0; i< returnListY.size(); i++) {
+           List<PathItem> PathY = returnListY.get(i);
+           for (int j =0; j < PathY.size(); j++) {
+                PathItem item = PathY.get(j);
+                int postion = -1;
+                if (isFull) {
+                    //for test;
+                    postion = checkExitPathItemInList(item, ListAllPathItem);
+                } else {
+                    postion = ListPostionY.get(i).get(j);
+                }
+                //int postion = checkExitPathItemInList(item, ListAllPathItem);
+                if (postion == -1) {
+                    List<Integer> listId = new ArrayList<>();
+                    listId.add(i);
+                    CustomPathItem customPathItem = new CustomPathItem(listId, item);
+                    customPathItem.setTime(returnListTi.get(i).get(j));
+                    ListAllPathItem.add(customPathItem);
+                    //Find list
+                    FindPathItemExitInListAll(returnListY, mListTarget, item, ListAllPathItem.size()-1, i+1, ListPostionY,isFull);
+                } else {
+                    CustomPathItem customPathItem = ListAllPathItem.get(postion);
+                    customPathItem.getListId().add(i);
+                }
+           }
+       }
+       
+       //Calculate Energy using of Sensor
+       for (int i =0; i < listSensorInAllPath.size();i++) {
+           int sensor = listSensorInAllPath.get(i);
+           EnergyItem energyItem = listEnergy.get(i);
+           for (int j =0; j < ListAllPathItem.size();j++) {
+                   PathItem path = ListAllPathItem.get(j).getPathItem();
+                   Double time = ListAllPathItem.get(j).getTime();
+
+                   float energyUse = (float)(getEnergyConsumer(path.getPath(), sensor) * time.doubleValue());
+                   
+                   if (energyUse > 0) {
+                       energyItem.addEnergyUse(energyUse);
+                       energyItem.addPostion(0, j);
+                   }
+                   
+
+           }
+
+       }
+       
+       //Sort cac phan tu Energy giam dan
+       Collections.sort(listEnergy, new Comparator<EnergyItem>(){
+            @Override
+               public int compare(EnergyItem o1, EnergyItem o2) {
+                   float size1 = o1.getEnergyUse();
+                   float size2 = o2.getEnergyUse();
+                   
+                   return Float.compare(size2, size1);
+               }
+            
+        });
+        ListCustomPathItem.clear();
+        float MaxEnergyInList = listEnergy.get(0).getEnergyUse();
+        if (MaxEnergyInList <= SensorUtility.mEoValue+SensorUtility.mOffset) {
+            //TH1 : Energy sau khi chia cho L (Anpha) khong lon hon E0
+            return ;
+
+        } else {
+            //TH2 Ton tai Energy cua 1 node lon hon Eo sau khi chia cho Anpha (L)
+            //Get list Energy lon hon E0
+            List<EnergyItem> listEnergyEo = new ArrayList<>();
+            listEnergyEo.clear();
+            for (int i =0; i < listEnergy.size();i++) {
+                EnergyItem energyItem = listEnergy.get(i);
+                if (energyItem.getEnergyUse() > SensorUtility.mEoValue+SensorUtility.mOffset) {
+                    listEnergyEo.add(energyItem);
+                } else {
+                    break; // reason : listEnergy sorted by descending order
+                }
+            }
+            
+            CalculateReduceTime(ListAllPathItem,listEnergyEo);
+            //Update List returnY and Ti
+            //Convert to ListY and ListTime
+            //Clear data 
+            for (int i = 0; i < returnListY.size(); i++) {
+                List<PathItem> pathY = returnListY.get(i);
+                pathY.clear();
+                List<Double> time = returnListTi.get(i);
+                time.clear();
+            }
+            //Coppy to ListY and ListTime
+            ListCustomPathItem = ListAllPathItem;
+            for (int i = 0; i < ListAllPathItem.size(); i++) {
+                CustomPathItem customPathItem = ListAllPathItem.get(i);
+                List<Integer> listTagetId = customPathItem.getListId();
+                for (int j = 0; j < listTagetId.size(); j++) {
+                    int id = listTagetId.get(j);
+                    List<Integer> path = customPathItem.getPathItem().getPath();
+                    List<Integer> tempPath = new ArrayList<>();
+
+                    for (int k = 0; k < path.size(); k++) {
+                        tempPath.add(path.get(k));
+                    }
+                    PathItem pathItem = new PathItem(tempPath);
+                    double time = customPathItem.getTime();
+                    returnListY.get(id).add(pathItem);
+                    returnListTi.get(id).add(time);
+                }
+            }
+            
+            
+        }
+         listEnergy = null;
+
+    }
+    
+    boolean CheckEnergyMoreThanEo(List<List<PathItem>> returnListY, List<List<Double>> returnListTi) {
+        //Test
+       //if (true) return true;
+         //Tim list sensor in all Path
+       List<Integer> listSensorInAllPath = new ArrayList<>();
+       FindListSensorInAllPath(returnListY,listSensorInAllPath);
+       
+       if (listSensorInAllPath.isEmpty()) return false;
+       //Tao list Energy tuong ung voi cac sensor      
+       List<EnergyItem> listEnergy = new ArrayList<>();
+       for (int i = 0; i < listSensorInAllPath.size();i++) {
+           EnergyItem energyItem = new EnergyItem(listSensorInAllPath.get(i), 0);
+           listEnergy.add(energyItem);
+       }
+       
+       //Create: List All Path and Time
+       List<CustomPathItem> ListAllPathItem = new ArrayList<>();
+       for (int i = 0; i< returnListY.size(); i++) {
+           List<PathItem> PathY = returnListY.get(i);
+           for (int j =0; j < PathY.size(); j++) {
+                PathItem item = PathY.get(j);
+                int postion = checkExitPathItemInList(item, ListAllPathItem);
+                if (postion == -1) {
+                    List<Integer> listId = new ArrayList<>();
+                    listId.add(i);
+                    CustomPathItem customPathItem = new CustomPathItem(listId, item);
+                    customPathItem.setTime(returnListTi.get(i).get(j));
+                    ListAllPathItem.add(customPathItem);
+                } else {
+                    CustomPathItem customPathItem = ListAllPathItem.get(postion);
+                    customPathItem.getListId().add(i);
+                }
+           }
+       }
+       
+       //Calculate Energy using of Sensor
+       for (int i =0; i < listSensorInAllPath.size();i++) {
+           int sensor = listSensorInAllPath.get(i);
+           for (int j =0; j < ListAllPathItem.size();j++) {
+                   PathItem path = ListAllPathItem.get(j).getPathItem();
+                   Double time = ListAllPathItem.get(j).getTime();
+                   EnergyItem energyItem = listEnergy.get(i);
+                   float energyUse = (float)(getEnergyConsumer(path.getPath(), sensor) * time);
+                   
+                   if (energyUse > 0) {
+                       energyItem.addEnergyUse(energyUse);
+                   }
+                   
+
+           }
+
+       }
+       //Check exit Energy > Eo
+        for (int i = 0; i < listEnergy.size(); i++) {
+            float MaxEnergyInList = listEnergy.get(i).getEnergyUse();
+            if (MaxEnergyInList > SensorUtility.mEoValue +SensorUtility.mOffset) {
+                return true;
+            }
+        }
+        ListAllPathItem = null;
+        return false;
+    }
+    
+    void CalculateReduceTime(List<CustomPathItem> listAllPathItem, List<EnergyItem> listEnergy) {
+        float MaxEnergyInList = listEnergy.get(0).getEnergyUse();
+        
+        
+        while (MaxEnergyInList > SensorUtility.mEoValue+SensorUtility.mOffset) {
+            float ratio = SensorUtility.mEoValue/MaxEnergyInList;
+            //Get list vi tri các Path chứa sensor
+            List<Integer> listPosPath = listEnergy.get(0).getPosPathList();
+            int sensor = listEnergy.get(0).getId();
+            
+            //Update Energy of Sensor in ListEnergy
+            for (int i =0; i< listPosPath.size(); i++) {
+                CustomPathItem customPathItem =  listAllPathItem.get(listPosPath.get(i));
+                List<Integer> list = customPathItem.getPathItem().getPath();
+                double timePath = customPathItem.getTime();
+                
+                for (int j =0; j < list.size(); j++) {
+                    int s = list.get(j);
+                    //Tính lượng năng lượng cần giảm đi của sensor s
+                    float energy = (float)(getEnergyConsumer(list, s) * timePath* (1- ratio));
+                    updateEnergyOfSensor(listEnergy,s, energy);
+                    
+                }
+                
+                //Change time of Path contain Sensor
+                customPathItem.setTime(timePath*ratio);
+
+            }
+            
+            //Xoa phan tu có năng lượng sử dụng lớn nhất trong Listenergy
+            listEnergy.remove(0);
+            if (listEnergy.isEmpty()) return;
+            
+            //Sort lại list energy theo thu tu giam dan
+            Collections.sort(listEnergy, new Comparator<EnergyItem>(){
+            @Override
+               public int compare(EnergyItem o1, EnergyItem o2) {
+                   float size1 = o1.getEnergyUse();
+                   float size2 = o2.getEnergyUse();
+                   
+                   return Float.compare(size2, size1);
+               }
+            
+            });
+            
+            //Gan lai gia tri Max cua listEnergy
+            MaxEnergyInList = listEnergy.get(0).getEnergyUse();
+            
+            
+        }
+        
+    }
+     
+    void updateEnergyOfSensor(List<EnergyItem> listEnergy, int sensor, float energy) {
+        for (int i =0 ; i < listEnergy.size(); i++) {
+            if (listEnergy.get(i).getId() == sensor) {
+                listEnergy.get(i).subEnergyUse(energy);
+                break;
+            }
+        }
+    }
+     
+    void FindListSensorInAllPath(List<List<PathItem>> returnListY, List<Integer> listSenSor) {
+        boolean checkExit[];
+        checkExit = new boolean[N];
+        for (int i = 0; i < returnListY.size(); i++) {
+            List<PathItem> listPath = returnListY.get(i);
+            for (int j =0; j < listPath.size();j++) {
+                PathItem path = listPath.get(j);
+                List<Integer> list = path.getPath();
+                for (int k =0; k < list.size();k++) {
+                    checkExit[list.get(k)] = true;
+                }
+            } 
+        }
+        
+        listSenSor.clear();
+        for (int i =0; i < checkExit.length; i++) {
+            if (checkExit[i]) {
+                listSenSor.add(i);
+            }
+        }
+    }
+    
+    boolean CheckExitListX(List<List<Integer>> listX, List<Integer> setX, int postionX) { //checked
+        Collections.sort(setX);
+        for (int i = 0 ;i<listX.size();i++) {
+            List<Integer> tempX = listX.get(i);
+            if (tempX.size() != setX.size()) {
+                continue;
+            } else {
+                Collections.sort(tempX);
+                int count = 0;
+                for (int j =0;j<tempX.size();j++) {
+                    if (!Objects.equals(setX.get(j), tempX.get(j))) {
+                        break;
+                    } else {
+                        count++;
+                    }
+                }
+                if (count == setX.size()) {
+                    postionX = i;
+                    return true;
+                }
+            }
+            
+             
+        }
+        return false;
+    }
+    
+    int CheckExitListTargetInSaveList(List<Integer> listTarget, List<Integer> listSink) {
+        int posTarget = -1;
+        for(int i =0 ; i< SaveListTarget.size();i++) {
+            List<Integer> list = SaveListTarget.get(i);
+            if (list.size() == listTarget.size()) {
+                int count =0;
+                for (int j =0 ; j < listTarget.size();j++) {
+                    if (!Objects.equals(list.get(j), listTarget.get(j))) {
+                        break;
+                    } else {
+                        count++;
+                    }
+                }
+                
+                if (list.size() == count) {
+                    posTarget = i;
+                }
+            }
+        }
+        if (posTarget != -1 && posTarget < SaveListSink.size()) {
+            List<Integer> listS = SaveListSink.get(posTarget);
+            if (listS.size() == listSink.size()) {
+                int count1 = 0;
+                for (int j = 0; j < listSink.size(); j++) {
+                    if (!Objects.equals(listS.get(j), listSink.get(j))) {
+                        break;
+                    } else {
+                        count1++;
+                    }
+                }
+
+                if (listS.size() == count1) {
+                    return posTarget;
+                }
+            }
+        }
+        
+        return -1;
+    }
+    
+    void CoppyListToSave(List<List<PathItem>> ListY, List<List<Double>> listTi, List<Integer> listTarget,List<Integer> listSink ) {
+        List<List<PathItem>> newListY = new ArrayList<>();
+        List<List<Double>> newlistTi = new ArrayList<>();
+        List<Integer> newListTarget = new ArrayList<>();
+        List<Integer> newListSink = new ArrayList<>();
+        //Coppy ListY
+        for (int i = 0 ;i < ListY.size();i++) {
+            List<PathItem> pathY = ListY.get(i);
+            List<PathItem> newPathY = new ArrayList<>();
+            for (int j =0; j< pathY.size();j++) {
+                newPathY.add(pathY.get(j));
+            }
+            newListY.add(pathY);
+        }
+        
+        //Coppy ListTi
+        for (int i =0 ; i < listTi.size(); i++) {
+            List<Double> Ti = listTi.get(i);
+            List<Double> newTi = new ArrayList<>();
+            for (int j = 0; j < Ti.size();j++) {
+                double t = Ti.get(j);
+                newTi.add(t);
+            }
+            newlistTi.add(newTi);
+        }
+        
+        //Coppy ListTarget
+        for (int i =0; i < listTarget.size(); i++) {
+            int target = listTarget.get(i);
+            newListTarget.add(target);
+        }
+        
+        //Coppy ListSink
+        for (int i =0; i < listSink.size(); i++) {
+            int sink = listSink.get(i);
+            newListSink.add(sink);
+        }
+        
+        SaveListofListY.add(newListY);
+        SaveListofListTi.add(newlistTi);
+        SaveListTarget.add(newListTarget);
+    }
+    
+    void GetListFromSave(List<List<PathItem>> ListY, List<List<Double>> listTi, int pos) {
+        if (pos >= SaveListofListY.size()) return;
+        
+        List<List<PathItem>> saveListY = SaveListofListY.get(pos);
+        List<List<Double>> saveListTi = SaveListofListTi.get(pos);
+        
+        
+        //Get pathY
+        for (int i = 0 ; i < saveListY.size(); i++) {
+            List<PathItem> savepathY = saveListY.get(i);
+            List<PathItem> pathY = new ArrayList<>();
+            
+            for (int j = 0; j < savepathY.size(); j++) {
+                pathY.add(savepathY.get(j));
+            }
+            ListY.add(pathY);
+        }
+        
+        //Get listTi
+        for (int i =0 ; i < saveListTi.size();i++) {
+            List<Double> Ti = new ArrayList<>();  
+            List<Double> saveTi = saveListTi.get(i);
+            
+            for (int j = 0; j< saveTi.size(); j++) {
+                double t = saveTi.get(j);
+                Ti.add(t);
+            }
+            listTi.add(Ti);
+                
+        }
+        
+    }
+    
+    
+}

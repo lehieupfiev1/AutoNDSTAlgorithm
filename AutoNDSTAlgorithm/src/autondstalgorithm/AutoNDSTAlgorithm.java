@@ -30,16 +30,16 @@ public class AutoNDSTAlgorithm {
     public static long timeRuning;
     public static long timeRunFindPath;
     public static double timeLifeOn;
-    public static String mPath = "E:\\HIEU\\CAO HOC\\";
+    public static String mPath = "E:\\HIEU\\CAO HOC\\Testcase\\";
     
     public static void main(String[] args) {
 
         // TODO code application logic here
         //NDSTAlgorithm1 algorithm = new NDSTAlgorithm1();
-        NDSTAlgorithm7 algorithm = new NDSTAlgorithm7(); //Tinh all path ngay tu dau
+        NDSTAlgorithm8 algorithm = new NDSTAlgorithm8(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
-        for (int i = 16; i <= 16; i++) {
+        for (int i = 4; i <= 4; i++) {
             try {
                 System.out.println("Test case "+i+"---------------------------");
                 //Cai dat ten File

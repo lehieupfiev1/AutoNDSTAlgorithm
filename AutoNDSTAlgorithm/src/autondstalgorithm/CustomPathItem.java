@@ -13,6 +13,7 @@ import java.util.List;
  * @author Hieu
  */
 public class CustomPathItem {
+    int id;
     List<Integer> listId;
     PathItem pathItem;
     double time;
@@ -30,6 +31,19 @@ public class CustomPathItem {
         this.listId = listId;
         this.pathItem = pathItem;
         time =0;
+    }
+
+    public CustomPathItem(int id, PathItem pathItem, double time) {
+        this.id = id;
+        this.pathItem = pathItem;
+        this.time = time;
+    }
+
+    public CustomPathItem(int id, List<Integer> listId, PathItem pathItem, double time) {
+        this.id = id;
+        this.listId = listId;
+        this.pathItem = pathItem;
+        this.time = time;
     }
 
     public List<Integer> getListId() {
@@ -56,4 +70,9 @@ public class CustomPathItem {
         this.time = time;
     }
     
+    public void addTime(double times) {
+        synchronized (this) {
+           this.time += times;
+        }
+    }
 }
