@@ -29,9 +29,9 @@ public class AutoNDSTAlgorithm {
     public static ArrayList<Double> listTotalTime;
     public static long timeRuning;
     public static long timeRunFindPath;
-    public static long timeRunCplex;
-    public static long timeRunCoppy;
-    public static long timeRunCombine;
+//    public static long timeRunCplex;
+//    public static long timeRunCoppy;
+//    public static long timeRunCombine;
     public static double timeLifeOn;
     public static String mPath = "E:\\HIEU\\CAO HOC\\Testcase\\";
     
@@ -74,7 +74,7 @@ public class AutoNDSTAlgorithm {
         FileWriter fw = new FileWriter(filename, true); //the true will append the new data
         fw.write("Test case : "+ postion+"\n");
         fw.write("Sensor="+mListSensorNodes.size() + "  Target="+mListTargetNodes.size()+ "  Sink="+mListSinkNodes.size()+ "  Rs="+mRsValue +"  Rc="+mRcValue +"  MaxHop="+mMaxHopper+ "  L="+Lvalue+"\n");
-        fw.write("TimeFindPath = " + AutoNDSTAlgorithm.timeRunFindPath+" , Time Cplex ="+ timeRunCplex+" , TimeCombine ="+timeRunCombine+ ", TimeCoppy= "+timeRunCoppy+" ,Time Run = "+ timeRuning+" , Time Life = "+ timLife+"\n");//appends the string to the file
+        fw.write("TimeFindPath = " + AutoNDSTAlgorithm.timeRunFindPath+" ,Time Run = "+ timeRuning+" , Time Life = "+ timLife+"\n");//appends the string to the file
         fw.write("\n");
         fw.close();
 
@@ -113,4 +113,6 @@ public class AutoNDSTAlgorithm {
         }
         return result;
     }
+    //fw.write("TimeFindPath = " + AutoNDSTAlgorithm.timeRunFindPath+" , Time Cplex ="+ timeRunCplex+" , TimeCombine ="+timeRunCombine+ ", TimeCoppy= "+timeRunCoppy+" ,Time Run = "+ timeRuning+" , Time Life = "+ timLife+"\n");//appends the string to the file
+
 }

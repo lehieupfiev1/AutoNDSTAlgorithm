@@ -91,7 +91,7 @@ public class NDSTAlgorithm8 {
         long start3 = System.currentTimeMillis();
         CoppyToListSensor();
         long end3 = System.currentTimeMillis();
-        AutoNDSTAlgorithm.timeRunCoppy = end3-start3;
+        //AutoNDSTAlgorithm.timeRunCoppy = end3-start3;
         System.out.println("Time coppy :" +(end3-start3));
 //        
         freeData();
@@ -911,13 +911,13 @@ public class NDSTAlgorithm8 {
             }
         }
         long end1 = System.currentTimeMillis();
-        AutoNDSTAlgorithm.timeRunCplex = end1-start1;
+        //AutoNDSTAlgorithm.timeRunCplex = end1-start1;
         System.out.println("Part time Cplex :" + (end1-start1));
         
         long start2 = System.currentTimeMillis();
         Combining_All_Division(mListAllPathItem,resultListY,resultListTi,isFull);
         long end2 = System.currentTimeMillis();
-        AutoNDSTAlgorithm.timeRunCombine = end2-start2;
+        //AutoNDSTAlgorithm.timeRunCombine = end2-start2;
         System.out.println("Part time Combine:" + (end2-start2));
 
         
