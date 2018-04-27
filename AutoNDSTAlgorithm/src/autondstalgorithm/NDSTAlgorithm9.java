@@ -301,7 +301,7 @@ public class NDSTAlgorithm9 {
                     continue;
                 }
 
-                if (headP.size() == MaxHopper) {
+                if (headP.size() != MaxHopper) {
                     ListP.remove(0);
                     ListParent.remove(0);
                 } else {
@@ -493,19 +493,21 @@ public class NDSTAlgorithm9 {
         if (m == 0 || n == 0) {
             return ListTime;
         }
-        
+
 //        //tao list luu vi tri trung nhau
-//        List<List<Integer>> ListPostionY = new ArrayList<>();
-//        for (int i =0; i < listPathY.size(); i++) {
-//            List<PathItem> PathY = listPathY.get(i);
-//            List<Integer> postionY = new ArrayList<>();
-//            for (int j =0; j< PathY.size(); j++) {
-//                postionY.add(-1);
-//            }
-//            ListPostionY.add(postionY);
-//        }
-//                
-        
+        List<List<Integer>> ListPostionY = new ArrayList<>();
+        if (isFull) {
+
+            for (int i = 0; i < listPathY.size(); i++) {
+                List<PathItem> PathY = listPathY.get(i);
+                List<Integer> postionY = new ArrayList<>();
+                for (int j = 0; j < PathY.size(); j++) {
+                    postionY.add(-1);
+                }
+                ListPostionY.add(postionY);
+            }
+        }
+
         //Check Input
         List<CustomPathItem> ListAllPath = new ArrayList<>();
         List<List<Integer>> ListofListPathOfTarget = new ArrayList<>();
@@ -519,7 +521,11 @@ public class NDSTAlgorithm9 {
                 CustomPathItem customPathItem = new CustomPathItem(listId, item);
                 ListPathOfTarget.add(ListAllPath.size());
                 ListAllPath.add(customPathItem);
-
+                //For test
+                if (isFull) {
+                    int postion = checkExitPathItemInList(item, ListAllPath);
+                    FindPathItemExitInListAll(mListofListPath, mListTarget, item, ListAllPath.size() - 1, i + 1, ListPostionY,isFull);
+                } 
             }
             // Add to List of  List Path of target
             ListofListPathOfTarget.add(ListPathOfTarget);
@@ -714,7 +720,7 @@ public class NDSTAlgorithm9 {
                     CustomPathItem customPathItem = new CustomPathItem(listId, item);
                     customPathItem.setTime(mListofListPathTime.get(i).get(j));
                     ListAllPathItem.add(customPathItem);
-
+                    FindPathItemExitInListAll(mListofListPath, mListTarget, item, ListAllPathItem.size() - 1, i + 1, ListPostionY,isFull);
                 }
             }
         } else {

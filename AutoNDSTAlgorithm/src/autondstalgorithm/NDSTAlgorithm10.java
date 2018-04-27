@@ -55,6 +55,10 @@ public class NDSTAlgorithm10 {
     List<CustomPathItem> ListCustomPathItem;
     List<CustomPathItem> mListAllPathItem; //Luu tat ca cac danh sach cau path
     List<List<Integer>> mListPosPathOfTarget; //List danh sach path cuat target trong mListAllPathItem 
+    
+    //Result
+    List<List<PathItem>> mListResultX;
+    List<Double> mListResultT;
     float ListEnergySensor[];
     float ListEnergyUsing[];
     int MAX_INTERGER = 100000000;
@@ -118,6 +122,8 @@ public class NDSTAlgorithm10 {
         ListCustomPathItem = new ArrayList<>();
         mListAllPathItem = new ArrayList<>();
         mListPosPathOfTarget = new ArrayList<>();
+        mListResultX = new ArrayList<>();
+        mListResultT = new ArrayList<>();
     }
     
     public  void readData() {
@@ -223,6 +229,8 @@ public class NDSTAlgorithm10 {
         mListSensing = null;
         mListAllPathItem = null;
         mListPosPathOfTarget = null;
+        mListResultX = null;
+        mListResultT = null;
     }
     
     public  float calculateDistance(float x1, float y1, float x2, float y2) {
@@ -633,28 +641,224 @@ public class NDSTAlgorithm10 {
         List<CustomPathItem> ListAllPathItem ;
         if (ListCustomPathItem.isEmpty()) {
             ListAllPathItem = mListAllPathItem;
-            
+            for (int i =0; i< ListAllPathItem.size(); ) {
+                CustomPathItem customPathItem = ListAllPathItem.get(i);
+                if (customPathItem.getTime() <= 0) {
+                    ListAllPathItem.remove(i);
+                } else {
+                    i++;
+                }
+            }
         } else {
             ListAllPathItem = ListCustomPathItem;
         }
-       
-       //Calculate Energy using of Sensor
-        for (int j = 0; j < ListAllPathItem.size(); j++) {
-            PathItem path = ListAllPathItem.get(j).getPathItem();
-            double time = ListAllPathItem.get(j).getTime();
-            List<Integer> listPoint = path.getPath();
-            for (int k = 0; k < listPoint.size(); k++) {
-                int point = listPoint.get(k);
-                ListEnergyUsing[point] += (getEnergyConsumer(listPoint, point) * time);
+        
+
+
+        int count =0;
+        do {
+            //Sort to calcul nhanh hon
+            Collections.sort(ListAllPathItem, new Comparator<CustomPathItem>() {
+                @Override
+                public int compare(CustomPathItem o1, CustomPathItem o2) {
+                    double distance1 = o1.getTime();
+                    double distance2 = o2.getTime();
+                    return Double.compare(distance2, distance1);
+                }
+            });
+
+            List<PathItem> listX = new ArrayList<>();
+            List<CustomPathItem> listCustomX = new ArrayList<>();
+            double Tmin = Double.MAX_VALUE;
+             //Reset id
+            for (int i = 0; i < ListAllPathItem.size(); i++) {
+                CustomPathItem customPathItem = ListAllPathItem.get(i);
+                customPathItem.setId(i);
             }
-        }
-        System.out.println("Nang luong cua cac Sensor :--------------");
-        for (int i =0 ; i < ListEnergySensor.length;i++) {
-            System.out.print(ListEnergyUsing[i]/1000000000+" ");
-        }
+            //Find Ti
+            List<CoverageItem> ListT = new ArrayList<>();
+            List<HeuristicItem> ListWeight = new ArrayList<>();
+            for (int i =0; i< ListAllPathItem.size(); i++) {
+                CustomPathItem customPathItem = ListAllPathItem.get(i);
+                int idSensing = customPathItem.getPathItem().getPath().get(0);
+                List<Integer> ListCover = new ArrayList<>();
+                for (int j =0; j< mListTarget.size();j++){
+                    if (Distance[idSensing][N+j] <= Rs) {
+                        ListCover.add(j);
+                    }
+                }
+                CoverageItem coverageItem = new CoverageItem(i, ListCover);
+                ListT.add(coverageItem);
+                //Creat list weight
+                HeuristicItem heuristicItem = new HeuristicItem(i, 0);
+                ListWeight.add(heuristicItem);
+            }
+            
+            //Step 1  : Calculate weght with X = rong 
+            
+           for (int i =0; i < ListAllPathItem.size(); i++) {
+               float wei = ListT.get(i).sizeCoverage();
+               ListWeight.get(i).setValue(wei);
+           }
+            
+           //Step 2:  add các path trong P vào tập Xk sao cho tập Xk phủ hết tất cả các target 
+            List<Integer> listCoverX = new ArrayList<>();
+            listCoverX.clear();
+            while (!ListWeight.isEmpty() && T != listCoverX.size()) {
+                
+                Collections.sort(ListWeight, new Comparator<HeuristicItem>() {
+                    @Override
+                    public int compare(HeuristicItem o1, HeuristicItem o2) {
+                        float distance1 = o1.getValue();
+                        float distance2 = o2.getValue();
+                        return Float.compare(distance2, distance1);
+                    }
+                });
+                //Get gia tri lon nhat
+                int id = ListWeight.get(0).getId();
+                
+                double time = ListAllPathItem.get(id).getTime();
+                listX.add(ListAllPathItem.get(id).getPathItem());
+                listCustomX.add(ListAllPathItem.get(id));
+                if (time < Tmin) {
+                    Tmin = time;
+                }
+                //Remove head of weight
+                ListWeight.remove(0);
+                //Calculate ListCoverOfX
+                List<Integer> listCoverAdd = ListT.get(id).getListCoverage();
+                calculateCover(listCoverX, listCoverAdd);
+                List<Integer> listNotX = new ArrayList<>();
+                boolean check[] = new boolean[mListTarget.size()];
+                for (int i = 0; i < listCoverX.size(); i++) {
+                    check[listCoverX.get(i)] = true;
+                }
+                for (int i =0; i< check.length; i++) {
+                    if (!check[i]) {
+                        listNotX.add(i);
+                    }
+                }
+                
+                //Update List Weight
+                for (int i = 0; i< ListWeight.size(); i++) {
+                    int idWe = ListWeight.get(i).getId();
+                    float weight = cal_Weight(ListT.get(idWe).getListCoverage(), listCoverX, listNotX);
+                    ListWeight.get(i).setValue(weight);
+                }
+                
+
+            }
+            
+            if (ListWeight.isEmpty() && T != listCoverX.size()) break;
+            
+            //Step 3 : update lai time of cac path duwoc add vao Xk theo Tmin
+            
+            for (int i = 0; i< listCustomX.size(); i++) {
+                CustomPathItem customPathItem = listCustomX.get(i);
+                //Reduce time
+                double tim = customPathItem.getTime() - Tmin;
+                customPathItem.setTime(tim);
+                if (tim <= 0) {
+                    int pos = customPathItem.getId();
+                    for (int k =0; k < ListAllPathItem.size(); k++) {
+                        if (ListAllPathItem.get(k).getId() == pos) {
+                            ListAllPathItem.remove(k);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            
+            //Save in result
+            mListResultX.add(listX);
+            mListResultT.add(Tmin);
+            System.out.println("Found X count ="+count + " Size X"+listX.size()+" Time ="+Tmin);
+            count ++;
+            
+            
+
+        } while (!ListAllPathItem.isEmpty() && checkCoverAllTarget(mListAllPathItem));
+        
+       //Calculate Energy using of Sensor
+//        for (int j = 0; j < ListAllPathItem.size(); j++) {
+//            PathItem path = ListAllPathItem.get(j).getPathItem();
+//            double time = ListAllPathItem.get(j).getTime();
+//            List<Integer> listPoint = path.getPath();
+//            for (int k = 0; k < listPoint.size(); k++) {
+//                int point = listPoint.get(k);
+//                ListEnergyUsing[point] += (getEnergyConsumer(listPoint, point) * time);
+//            }
+//        }
+//        System.out.println("Nang luong cua cac Sensor :--------------");
+//        for (int i =0 ; i < ListEnergySensor.length;i++) {
+//            System.out.print(ListEnergyUsing[i]/1000000000+" ");
+//        }
+        SensorUtility.mListofListTime = mListResultT;
         System.out.println();
     }
     
+    boolean checkCoverAllTarget(List<CustomPathItem> listAllPath) {
+        boolean check[] = new boolean[mListTarget.size()];
+        for (int i =0; i< listAllPath.size(); i++) {
+            CustomPathItem customPathItem = listAllPath.get(i);
+            int idSen = customPathItem.getPathItem().getPath().get(0);
+            for (int j =0; j < mListTarget.size(); j++) {
+                 if (Distance[idSen][N+j] <= Rs) {
+                     check[j] = true;
+                 } 
+            }
+        }
+        
+        for (int i=0; i< check.length; i++) {
+            if (!check[i]) return false;
+        }
+        return  true;
+    }
+    
+    void calculateCover(List<Integer> listCoverX, List<Integer> listAdd) {
+        int N1 = listCoverX.size();
+        int count;
+        for (int i =0; i < listAdd.size(); i++) {
+            count =0;
+            for (int j =0; j < N1;j++) {
+                if (Objects.equals(listAdd.get(i), listCoverX.get(j))) {
+                    break;
+                } else {
+                    count++;
+                }
+            }
+            if (count == N1) {
+                listCoverX.add(listAdd.get(i));
+            }
+        }
+    }
+    float cal_Weight(List<Integer> listCoverP, List<Integer> listCoverX,List<Integer> listNotX) {
+        int tuso =0;
+        int mauso =1;
+        //Tinh tu so
+        for (int i =0; i < listCoverP.size();i++) {
+            for (int j =0; j< listNotX.size(); j++) {
+                if (Objects.equals(listCoverP.get(i), listNotX.get(j))) {
+                    tuso ++;
+                    break;
+                }
+            }
+        }
+        
+        //Tinh mau so
+        for (int i =0; i < listCoverP.size();i++) {
+            for (int j =0; j< listCoverX.size(); j++) {
+                if (Objects.equals(listCoverP.get(i), listCoverX.get(j))) {
+                    mauso ++;
+                    break;
+                }
+            }
+        }
+        
+        return (float)tuso/mauso;
+        
+    }
     public void FindingAllCustomPath(List<Integer> listSensing, List<Integer> listTarget, List<List<PathItem>> ListPathY, List<CustomPathItem> listAllPathItem) {
         int count = 0;
         for (int i = 0; i < ListPathY.size(); i++) {

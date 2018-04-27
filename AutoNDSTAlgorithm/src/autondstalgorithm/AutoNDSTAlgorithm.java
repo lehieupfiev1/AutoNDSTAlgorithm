@@ -39,10 +39,10 @@ public class AutoNDSTAlgorithm {
 
         // TODO code application logic here
         //NDSTAlgorithm1 algorithm = new NDSTAlgorithm1();
-        NDSTAlgorithm6 algorithm = new NDSTAlgorithm6(); //Tinh all path ngay tu dau
+        NDSTAlgorithm10 algorithm = new NDSTAlgorithm10(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
-        for (int i = 13; i <= 13; i++) {
+        for (int i = 1; i <= 8; i++) {
             try {
                 System.out.println("Test case "+i+"---------------------------");
                 //Cai dat ten File
@@ -53,13 +53,13 @@ public class AutoNDSTAlgorithm {
                 algorithm.run();
                 long end = System.currentTimeMillis();
                 timeRuning = end - begin;
-                timeLifeOn = calculateTotalTime();
+                timeLifeOn = calculateTotalTime2();
 
             } catch (IOException ex) {
                 Logger.getLogger(AutoNDSTAlgorithm.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
-                writeResultFile(mPath+"NSDTAlgorithm9.txt", i, timeRuning, timeLifeOn); //Url luu file input duoc sinh ra
+                writeResultFile(mPath+"NSDTAlgorithm8.txt", i, timeRuning, timeLifeOn); //Url luu file input duoc sinh ra
                 resetData();
             } catch (IOException ex) {
                 Logger.getLogger(AutoNDSTAlgorithm.class.getName()).log(Level.SEVERE, null, ex);
@@ -74,8 +74,7 @@ public class AutoNDSTAlgorithm {
         FileWriter fw = new FileWriter(filename, true); //the true will append the new data
         fw.write("Test case : "+ postion+"\n");
         fw.write("Sensor="+mListSensorNodes.size() + "  Target="+mListTargetNodes.size()+ "  Sink="+mListSinkNodes.size()+ "  Rs="+mRsValue +"  Rc="+mRcValue +"  MaxHop="+mMaxHopper+ "  L="+Lvalue+"\n");
-        //fw.write("TimeFindPath = " + AutoNDSTAlgorithm.timeRunFindPath+" ,Time Run = "+ timeRuning+" , Time Life = "+ timLife+"\n");//appends the string to the file
-        fw.write("TimeFindPath = " + AutoNDSTAlgorithm.timeRunFindPath+" , Time Cplex ="+ timeRunCplex+" , TimeCombine ="+timeRunCombine+ ", TimeCoppy= "+timeRunCoppy+" ,Time Run = "+ timeRuning+" , Time Life = "+ timLife+"\n");//appends the string to the file
+        fw.write("TimeFindPath = " + AutoNDSTAlgorithm.timeRunFindPath+" ,Time Run = "+ timeRuning+" , Time Life = "+ timLife+"\n");
         fw.write("\n");
         fw.close();
 
@@ -104,9 +103,17 @@ public class AutoNDSTAlgorithm {
             minimumTime = listTotalTime.get(i).doubleValue();
         }
         return minimumTime;
-    
+
     }
-    
+    static double calculateTotalTime2() {
+     //------------Algorithm 10----------------------------
+        double total =0;
+        for (int i = 0; i < mListofListTime.size(); i++) {
+            double next = mListofListTime.get(i);
+            total += next;
+        }
+        return total;
+    }
     static double calculateTotal(List<Double> list) {
         double result =0;
         for (int i =0; i< list.size();i++) {

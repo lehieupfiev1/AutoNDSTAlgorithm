@@ -46,6 +46,14 @@ public class CustomPathItem {
         this.time = time;
     }
 
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
     public List<Integer> getListId() {
         return listId;
     }
