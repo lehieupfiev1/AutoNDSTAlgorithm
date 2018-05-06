@@ -33,7 +33,7 @@ public class NDSTAlgorithm11 {
     public float Point[][];// Total nodes
     public float Sink[][];// Target covering sensors
     
-    double mTimeLife;
+    public double mTimeLife;
     float Rs, Rc;// Rs and Rt value
     float R; // Tinh phan chia nho nhat
     int MaxHopper;
@@ -55,6 +55,7 @@ public class NDSTAlgorithm11 {
     List<CustomPathItem> ListCustomPathItem;
     List<CustomPathItem> mListAllPathItem; //Luu tat ca cac danh sach cau path
     List<List<Integer>> mListPosPathOfTarget; //List danh sach path cuat target trong mListAllPathItem 
+    List<BlockResultItem> mListBlockResult;
     
     //Result
     List<List<PathItem>> mListResultX;
@@ -124,6 +125,7 @@ public class NDSTAlgorithm11 {
         mListPosPathOfTarget = new ArrayList<>();
         mListResultX = new ArrayList<>();
         mListResultT = new ArrayList<>();
+        mListBlockResult = new ArrayList<>();
     }
     
     public  void readData() {
@@ -231,6 +233,7 @@ public class NDSTAlgorithm11 {
         mListPosPathOfTarget = null;
         mListResultX = null;
         mListResultT = null;
+        mListBlockResult = null;
     }
     
     public  float calculateDistance(float x1, float y1, float x2, float y2) {
@@ -380,7 +383,8 @@ public class NDSTAlgorithm11 {
     }
     
     void Getting_CCP(List<CustomPathItem> ListAllPathItem, List<Integer> listTarget, List<CustomPathItem> ListCustomPath) {
-        boolean Check[] = new boolean[ListAllPathItem.size()];
+    	ListCustomPath.clear();
+    	boolean Check[] = new boolean[ListAllPathItem.size()];
         for (int i =0; i < listTarget.size(); i++) {
             int id = listTarget.get(i);
             List<Integer> listPos = mListPosPathOfTarget.get(id);
@@ -391,7 +395,9 @@ public class NDSTAlgorithm11 {
         for (int i = 0; i< ListAllPathItem.size(); i++) {
             if(Check[i]) {
                 CustomPathItem customPathItem = ListAllPathItem.get(i);
-                ListCustomPath.add(customPathItem);
+                CustomPathItem newCustomPathItem = new CustomPathItem(customPathItem.getId(), customPathItem.getListId(), customPathItem.getPathItem(), 0);
+                        
+                ListCustomPath.add(newCustomPathItem);
             }
         }
         Check = null;
@@ -571,7 +577,7 @@ public class NDSTAlgorithm11 {
                 for (int j = 0; j < listCustomPath.size();) {
                     if (cplex.getValue(t[cnt]) > 0) {
                         CustomPathItem customPathItem = listCustomPath.get(j);
-                        customPathItem.addTime(cplex.getValue(t[cnt]));
+                        customPathItem.setTime(cplex.getValue(t[cnt]));
                         j++;
                     } else {
                         listCustomPath.remove(j);
@@ -632,32 +638,15 @@ public class NDSTAlgorithm11 {
         }
         return b;
     }
-    public void CoppyToListSensor() {
-        mListofListPath.clear();
-        mListofListPath = resultListY;
-        SensorUtility.mListofListPathTime = resultListTi;
-        
-       //Create: List All Path and Time
-        List<CustomPathItem> ListAllPathItem ;
-        if (ListCustomPathItem.isEmpty()) {
-            ListAllPathItem = mListAllPathItem;
-            for (int i =0; i< ListAllPathItem.size(); ) {
-                CustomPathItem customPathItem = ListAllPathItem.get(i);
-                if (customPathItem.getTime() <= 0) {
-                    ListAllPathItem.remove(i);
-                } else {
-                    i++;
-                }
-            }
-        } else {
-            ListAllPathItem = ListCustomPathItem;
-        }
-        
-
-
+    
+    public double ConvertForm2ToForm1(List<CustomPathItem> ListAllPathItem, List<Integer> ListTarget, List<List<PathItem>> ListResultX,List<Double> ListTime, boolean isfull) {
         int count =0;
+        double TotalTime =0;
+        
+        System.out.println("Convert ListAllPathItem ="+ ListAllPathItem.size());
         do {
             //Sort to calcul nhanh hon
+            System.out.println("ConvertForm2ToForm1 do while");
             Collections.sort(ListAllPathItem, new Comparator<CustomPathItem>() {
                 @Override
                 public int compare(CustomPathItem o1, CustomPathItem o2) {
@@ -682,15 +671,15 @@ public class NDSTAlgorithm11 {
                 CustomPathItem customPathItem = ListAllPathItem.get(i);
                 int idSensing = customPathItem.getPathItem().getPath().get(0);
                 List<Integer> ListCover = new ArrayList<>();
-                for (int j =0; j< mListTarget.size();j++){
-                    if (Distance[idSensing][N+j] <= Rs) {
-                        ListCover.add(j);
+                for (int j =0; j< ListTarget.size();j++){
+                    if (Distance[idSensing][N+ListTarget.get(j)] <= Rs) {
+                        ListCover.add(ListTarget.get(j));
                     }
                 }
                 CoverageItem coverageItem = new CoverageItem(i, ListCover);
                 ListT.add(coverageItem);
                 //Creat list weight
-                HeuristicItem heuristicItem = new HeuristicItem(i, 0);
+                HeuristicItem heuristicItem = new HeuristicItem(i, 0,customPathItem.getTime());
                 ListWeight.add(heuristicItem);
             }
             
@@ -704,14 +693,18 @@ public class NDSTAlgorithm11 {
            //Step 2:  add các path trong P vào tập Xk sao cho tập Xk phủ hết tất cả các target 
             List<Integer> listCoverX = new ArrayList<>();
             listCoverX.clear();
-            while (!ListWeight.isEmpty() && T != listCoverX.size()) {
+            while (!ListWeight.isEmpty() && ListTarget.size() != listCoverX.size()) {
                 
                 Collections.sort(ListWeight, new Comparator<HeuristicItem>() {
                     @Override
                     public int compare(HeuristicItem o1, HeuristicItem o2) {
-                        float distance1 = o1.getValue();
-                        float distance2 = o2.getValue();
-                        return Float.compare(distance2, distance1);
+                        float weight1 = o1.getValue();
+                        float weight2 = o2.getValue();
+                        if (weight1 != weight2) {
+                            return Float.compare(weight2, weight1);
+                        } else {
+                            return Double.compare(o2.getTime(), o1.getTime());
+                        }
                     }
                 });
                 //Get gia tri lon nhat
@@ -729,13 +722,18 @@ public class NDSTAlgorithm11 {
                 List<Integer> listCoverAdd = ListT.get(id).getListCoverage();
                 calculateCover(listCoverX, listCoverAdd);
                 List<Integer> listNotX = new ArrayList<>();
-                boolean check[] = new boolean[mListTarget.size()];
+                boolean check[] = new boolean[ListTarget.size()];
                 for (int i = 0; i < listCoverX.size(); i++) {
-                    check[listCoverX.get(i)] = true;
+                    for (int j = 0; j < ListTarget.size(); j++) {
+                        if (Objects.equals(listCoverX.get(i), ListTarget.get(j))) {
+                            check[j] = true;
+                            if (!isfull) break;
+                        }
+                    }
                 }
                 for (int i =0; i< check.length; i++) {
                     if (!check[i]) {
-                        listNotX.add(i);
+                        listNotX.add(ListTarget.get(i));
                     }
                 }
                 
@@ -748,8 +746,8 @@ public class NDSTAlgorithm11 {
                 
 
             }
-            
-            if (ListWeight.isEmpty() && T != listCoverX.size()) break;
+            System.out.println("ConvertForm2ToForm1 do while break");
+            if (ListWeight.isEmpty() && ListTarget.size() != listCoverX.size()) break;
             
             //Step 3 : update lai time of cac path duwoc add vao Xk theo Tmin
             
@@ -763,7 +761,7 @@ public class NDSTAlgorithm11 {
                     for (int k =0; k < ListAllPathItem.size(); k++) {
                         if (ListAllPathItem.get(k).getId() == pos) {
                             ListAllPathItem.remove(k);
-                            break;
+                            if (!isfull) break;
                         }
                     }
                 }
@@ -771,14 +769,45 @@ public class NDSTAlgorithm11 {
             
             
             //Save in result
-            mListResultX.add(listX);
-            mListResultT.add(Tmin);
+            ListResultX.add(listX);
+			if (!isfull) {
+				Tmin *= (Math.pow(Anpha, 2) / Math.pow(Anpha + 1, 2));
+			}
+            ListTime.add(Tmin);
+            TotalTime += Tmin;
             System.out.println("Found X count ="+count + " Size X"+listX.size()+" Time ="+Tmin);
             count ++;
             
             
 
-        } while (!ListAllPathItem.isEmpty() && checkCoverAllTarget(mListAllPathItem));
+        } while (!ListAllPathItem.isEmpty() && checkCoverListTarget(ListAllPathItem,ListTarget));
+        System.out.println("Convert TotalTime ="+ TotalTime);
+        
+        return TotalTime;
+    }
+    
+    
+    
+    public void CoppyToListSensor() {
+        mListofListPath.clear();
+        mListofListPath = resultListY;
+        SensorUtility.mListofListPathTime = resultListTi;
+        
+       //Create: List All Path and Time
+        List<CustomPathItem> ListAllPathItem ;
+        if (ListCustomPathItem.isEmpty()) {
+            ListAllPathItem = mListAllPathItem;
+            for (int i =0; i< ListAllPathItem.size(); ) {
+                CustomPathItem customPathItem = ListAllPathItem.get(i);
+                if (customPathItem.getTime() <= 0) {
+                    ListAllPathItem.remove(i);
+                } else {
+                    i++;
+                }
+            }
+        } else {
+            ListAllPathItem = ListCustomPathItem;
+        }
         
        //Calculate Energy using of Sensor
 //        for (int j = 0; j < ListAllPathItem.size(); j++) {
@@ -798,13 +827,13 @@ public class NDSTAlgorithm11 {
         System.out.println();
     }
     
-    boolean checkCoverAllTarget(List<CustomPathItem> listAllPath) {
-        boolean check[] = new boolean[mListTarget.size()];
+    boolean checkCoverListTarget(List<CustomPathItem> listAllPath, List<Integer> ListTarget) {
+        boolean check[] = new boolean[ListTarget.size()];
         for (int i =0; i< listAllPath.size(); i++) {
             CustomPathItem customPathItem = listAllPath.get(i);
             int idSen = customPathItem.getPathItem().getPath().get(0);
-            for (int j =0; j < mListTarget.size(); j++) {
-                 if (Distance[idSen][N+j] <= Rs) {
+            for (int j =0; j < ListTarget.size(); j++) {
+                 if (Distance[idSen][N+ListTarget.get(j)] <= Rs) {
                      check[j] = true;
                  } 
             }
@@ -947,6 +976,7 @@ public class NDSTAlgorithm11 {
 
             int X = (int) Math.ceil(SensorUtility.numberRow / (2 * R)) + Anpha - 1;
             int Y = (int) Math.ceil(SensorUtility.numberColum / (2 * R)) + Anpha - 1;
+            System.out.println("Max postion i :" + X + " - Max postion j :"+Y);
             countBlock = 0;
             for (int i = 1; i <= X; i++) {
                 for (int j = 1; j <= Y; j++) {
@@ -957,7 +987,8 @@ public class NDSTAlgorithm11 {
                     float x2 = getMin(2 * i * R, SensorUtility.numberRow);
                     float y2 = getMin(2 * j * R, SensorUtility.numberColum);
                     if (x2 > x1 && y2 > y1) {
-
+                        int positionI = i;
+                        int positionJ = j;
                         FloatPointItem upPoint = new FloatPointItem(x1, y1);
                         FloatPointItem downPoint = new FloatPointItem(x2, y2);
                         List<Integer> tempListTarget = FindListTarget(upPoint, downPoint);
@@ -978,6 +1009,14 @@ public class NDSTAlgorithm11 {
 
                                     //Update value in CustomPathItem
                                     LinearProAlgorithm(ListCustomPath, tempListSensor, tempListTarget, SensorUtility.mEoValue, false);
+                                    
+                                    //Convert Form 2 to Form 1
+                                    List<List<PathItem>> listResultX = new ArrayList<>();
+                                    List<Double> listTime = new ArrayList<>();
+                                    double Totaltime = ConvertForm2ToForm1(ListCustomPath, tempListTarget, listResultX, listTime,false);
+                                    BlockResultItem blockResultItem = new BlockResultItem(positionI, positionJ, listResultX, listTime, Totaltime);
+                                    mListBlockResult.add(blockResultItem);
+                                    
 
                                     //Add result of Block
                                     countBlock++;
@@ -1017,6 +1056,13 @@ public class NDSTAlgorithm11 {
 
                     //Update CustomPathItem
                     LinearProAlgorithm(ListCustomPath, mListSensor, mListTarget, SensorUtility.mEoValue, true);
+
+                    //Convert Form 2 to Form 1
+                    List<List<PathItem>> listResultX = new ArrayList<>();
+                    List<Double> listTime = new ArrayList<>();
+                    double Totaltime = ConvertForm2ToForm1(ListCustomPath, mListTarget, listResultX, listTime,true);
+                    BlockResultItem blockResultItem = new BlockResultItem(0, 0, listResultX, listTime, Totaltime);
+                    mListBlockResult.add(blockResultItem);
                 }
 
             });
@@ -1032,7 +1078,8 @@ public class NDSTAlgorithm11 {
         System.out.println("Part time Cplex :" + (end1-start1));
         
         long start2 = System.currentTimeMillis();
-        Combining_All_Division(mListAllPathItem,resultListY,resultListTi,isFull);
+        //Combining_All_Division(mListAllPathItem,resultListY,resultListTi,isFull);
+        mTimeLife = Combining_All_Division2(mListBlockResult, isFull);
         long end2 = System.currentTimeMillis();
         //AutoNDSTAlgorithm.timeRunCombine = end2-start2;
         System.out.println("Part time Combine:" + (end2-start2));
@@ -1180,6 +1227,62 @@ public class NDSTAlgorithm11 {
             }
         }
         return 0;
+    }
+    
+    double getMinTimeOfBlock(int posI, int posJ, int Kx, int Ky, List<BlockResultItem> ListBlockResult) {
+       double timeMin = Double.MAX_VALUE;
+       for (int u =0 ; u <= Kx; u++) {
+           for (int v=0; v <= Ky; v++) {
+               int positionI = posI + u*Anpha;
+               int positionJ = posJ + v*Anpha;
+               double time = findTotalTimeFromListBlock(positionI, positionJ, ListBlockResult);
+               if (time != 0 && time < timeMin) {
+                   timeMin = time;
+               }
+           }
+           
+       }
+       return timeMin;
+    }
+    
+    double findTotalTimeFromListBlock(int positionI, int positionJ,List<BlockResultItem> ListBlockResult) {
+        for (int i =0; i< ListBlockResult.size(); i++) {
+            BlockResultItem blockResultItem = ListBlockResult.get(i);
+            if (blockResultItem.getPostionI() == positionI && blockResultItem.getPostionJ() == positionJ) {
+                return blockResultItem.getTotalTime();
+            }
+        }
+        System.out.println("Khong tim thay block");
+        return 0;
+    }
+    public double Combining_All_Division2(List<BlockResultItem> ListBlockResult,boolean isFull) {
+        double network_timelife =0;
+        if (isFull) {
+            //TH mang full
+            BlockResultItem blockResultItem = ListBlockResult.get(0);
+            List<Double> listTime = blockResultItem.getListTime();
+            for (int i =0; i< listTime.size(); i++) {
+                network_timelife += listTime.get(i);
+            }
+            
+        } else {
+            //TH division
+            double tempx = SensorUtility.numberRow/(2*R);
+            double tempy = SensorUtility.numberColum/(2*R);
+            for (int i =1; i<= Anpha; i++) {
+                for (int j = 1; j <= Anpha; j++) {
+                    int Kx = (int) Math.ceil((tempx - i) / Anpha);
+                    int Ky = (int) Math.ceil((tempy - j) / Anpha);
+                    if (Kx > 0 && Ky > 0) {
+                        double TimeIJ = getMinTimeOfBlock(i, j, Kx, Ky, ListBlockResult);
+                        network_timelife += TimeIJ;
+                    }
+                }
+            }
+            network_timelife /= (Anpha*Anpha);
+        }
+        
+        return network_timelife;
     }
     
     public void Combining_All_Division(List<CustomPathItem> ListAllPath, List<List<PathItem>> returnListY, List<List<Double>> returnListTi,boolean isFull) {

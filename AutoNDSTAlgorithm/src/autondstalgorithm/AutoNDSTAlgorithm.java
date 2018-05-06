@@ -39,10 +39,10 @@ public class AutoNDSTAlgorithm {
 
         // TODO code application logic here
         //NDSTAlgorithm1 algorithm = new NDSTAlgorithm1();
-        NDSTAlgorithm10 algorithm = new NDSTAlgorithm10(); //Tinh all path ngay tu dau
+        NDSTAlgorithm11 algorithm = new NDSTAlgorithm11(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
-        for (int i = 1; i <= 8; i++) {
+        for (int i = 3; i <= 3; i++) {
             try {
                 System.out.println("Test case "+i+"---------------------------");
                 //Cai dat ten File
@@ -53,13 +53,13 @@ public class AutoNDSTAlgorithm {
                 algorithm.run();
                 long end = System.currentTimeMillis();
                 timeRuning = end - begin;
-                timeLifeOn = calculateTotalTime2();
+                timeLifeOn = algorithm.mTimeLife;
 
             } catch (IOException ex) {
                 Logger.getLogger(AutoNDSTAlgorithm.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
-                writeResultFile(mPath+"NSDTAlgorithm8.txt", i, timeRuning, timeLifeOn); //Url luu file input duoc sinh ra
+                writeResultFile(mPath+"NSDTAlgorithm11.txt", i, timeRuning, timeLifeOn); //Url luu file input duoc sinh ra
                 resetData();
             } catch (IOException ex) {
                 Logger.getLogger(AutoNDSTAlgorithm.class.getName()).log(Level.SEVERE, null, ex);

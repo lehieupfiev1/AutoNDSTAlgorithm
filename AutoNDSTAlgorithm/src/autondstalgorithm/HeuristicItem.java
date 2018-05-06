@@ -12,13 +12,21 @@ package autondstalgorithm;
 public class HeuristicItem {
     int id;
     float value;
+    double time;
 
     public HeuristicItem() {
+    }
+
+    public HeuristicItem(int id, float value, double time) {
+        this.id = id;
+        this.value = value;
+        this.time = time;
     }
 
     public HeuristicItem(int id, float value) {
         this.id = id;
         this.value = value;
+        this.time = 0;
     }
 
     public int getId() {
@@ -35,6 +43,14 @@ public class HeuristicItem {
 
     public void setValue(float value) {
         this.value = value;
+    }
+
+    public double getTime() {
+        return time;
+    }
+
+    public void setTime(double time) {
+        this.time = time;
     }
     
 }
