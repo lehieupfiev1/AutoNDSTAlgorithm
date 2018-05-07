@@ -1253,27 +1253,25 @@ public class NDSTAlgorithm11 {
         return 0;
     }
     
-    double getMinTimeOfBlock(int posI, int posJ, int Kx, int Ky, List<BlockResultItem> ListBlockResult, float[] ListEnergyUsing) {
-       double timeMin = Double.MAX_VALUE;
-       for (int u =0 ; u <= Kx; u++) {
-           for (int v=0; v <= Ky; v++) {
-               int positionI = posI + u*Anpha;
-               int positionJ = posJ + v*Anpha;
-               double time = findTotalTimeFromListBlock(positionI, positionJ, ListBlockResult,ListEnergyUsing );
-               if (time != 0 && time < timeMin) {
-                   timeMin = time;
-               }
-           }
-           
-       }
-       return timeMin;
+    //Calculate energy using of all block in a division
+    void CalculateEnergyUsing(int posI, int posJ, int Kx, int Ky, List<BlockResultItem> ListBlockResult, float[] ListEnergyUsing, double minTime) {
+        for (int u = 0; u <= Kx; u++) {
+            for (int v = 0; v <= Ky; v++) {
+                int positionI = posI + u * Anpha;
+                int positionJ = posJ + v * Anpha;
+                EnergyUsingInBlock(positionI, positionJ, ListBlockResult, ListEnergyUsing,minTime);
+            }
+
+        }
     }
     
-    double findTotalTimeFromListBlock(int positionI, int positionJ,List<BlockResultItem> ListBlockResult, float[] ListEnergyUsing) {
+    void EnergyUsingInBlock(int positionI, int positionJ,List<BlockResultItem> ListBlockResult, float[] ListEnergyUsing,double minTime) {
         for (int i =0; i< ListBlockResult.size(); i++) {
             BlockResultItem blockResultItem = ListBlockResult.get(i);
             if (blockResultItem.getPostionI() == positionI && blockResultItem.getPostionJ() == positionJ) {
                 //Calculate Energy Using
+                double totalTimeBlock = blockResultItem.getTotalTime();
+                double ratio = minTime/totalTimeBlock;
                 List<List<PathItem>> listResultX = blockResultItem.getListResultX();
                 List<Double> listTime = blockResultItem.getListTime();
                 for (int j = 0 ; j < listResultX.size(); j++) {
@@ -1284,12 +1282,37 @@ public class NDSTAlgorithm11 {
 
                         for (int m = 0; m < listPoint.size(); m++) {
                             int point = listPoint.get(m);
-                            ListEnergyUsing[point] += (getEnergyConsumer2(listPoint, point,m) * timePath);
+                            ListEnergyUsing[point] += (getEnergyConsumer2(listPoint, point,m) * timePath*ratio);
                         }
 
                     }
                 }
-                
+            }
+        }
+        System.out.println("Khong tim thay block");
+        return ;
+
+    } 
+    double getMinTimeOfBlock(int posI, int posJ, int Kx, int Ky, List<BlockResultItem> ListBlockResult) {
+       double timeMin = Double.MAX_VALUE;
+       for (int u =0 ; u <= Kx; u++) {
+           for (int v=0; v <= Ky; v++) {
+               int positionI = posI + u*Anpha;
+               int positionJ = posJ + v*Anpha;
+               double time = findTotalTimeFromListBlock(positionI, positionJ, ListBlockResult);
+               if (time != 0 && time < timeMin) {
+                   timeMin = time;
+               }
+           }
+           
+       }
+       return timeMin;
+    }
+    
+    double findTotalTimeFromListBlock(int positionI, int positionJ,List<BlockResultItem> ListBlockResult) {
+        for (int i =0; i< ListBlockResult.size(); i++) {
+            BlockResultItem blockResultItem = ListBlockResult.get(i);
+            if (blockResultItem.getPostionI() == positionI && blockResultItem.getPostionJ() == positionJ) {
                 
                 return blockResultItem.getTotalTime();
             }
@@ -1333,7 +1356,10 @@ public class NDSTAlgorithm11 {
                             int Kx = (int) Math.ceil((tempx - i1) / Anpha);
                             int Ky = (int) Math.ceil((tempy - j1) / Anpha);
                             if (Kx > 0 && Ky > 0) {
-                                double TimeIJ = getMinTimeOfBlock(i1, j1, Kx, Ky, ListBlockResult, ListEnergyUsing);
+                                double TimeIJ = getMinTimeOfBlock(i1, j1, Kx, Ky, ListBlockResult);
+                                //Calculation ListEnergyUsing
+                                CalculateEnergyUsing(i1, j1, Kx, Ky, ListBlockResult,ListEnergyUsing,TimeIJ);
+                                
                                 current_lifetime += TimeIJ;
 
                             }
