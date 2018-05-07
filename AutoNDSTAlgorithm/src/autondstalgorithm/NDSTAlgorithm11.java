@@ -626,6 +626,30 @@ public class NDSTAlgorithm11 {
         return 0.0f;
     }
     
+    float getEnergyConsumer2(List<Integer> pathYi, int sensor, int pos) {
+        float result = 0;
+
+        if (pos == 0) {
+            result += bit * Es;
+            if (pathYi.size() == 1) {
+                result += bit * TranferEnergy(MinDistanceSink[sensor]);
+            } else {
+                result += bit * TranferEnergy(Distance[sensor][pathYi.get(pos + 1)]);
+            }
+            return result;
+        } else if (pathYi.get(pos) == sensor) {
+            result += bit * Er;
+            if (pos == pathYi.size() - 1) {
+                result += bit * TranferEnergy(MinDistanceSink[sensor]);
+            } else {
+                result += bit * TranferEnergy(Distance[sensor][pathYi.get(pos + 1)]);
+            }
+            return result;
+        }
+
+        return 0.0f;
+    }
+    
     float getMin(float a , float b) {
         if (a < b) {
             return a;
@@ -727,7 +751,7 @@ public class NDSTAlgorithm11 {
                     for (int j = 0; j < ListTarget.size(); j++) {
                         if (Objects.equals(listCoverX.get(i), ListTarget.get(j))) {
                             check[j] = true;
-                            if (!isfull) break;
+                            break;
                         }
                     }
                 }
@@ -770,9 +794,9 @@ public class NDSTAlgorithm11 {
             
             //Save in result
             ListResultX.add(listX);
-			if (!isfull) {
-				Tmin *= (Math.pow(Anpha, 2) / Math.pow(Anpha + 1, 2));
-			}
+            //if (!isfull) {
+            //	Tmin *= (Math.pow(Anpha, 2) / Math.pow(Anpha + 1, 2));
+            //}
             ListTime.add(Tmin);
             TotalTime += Tmin;
             System.out.println("Found X count ="+count + " Size X"+listX.size()+" Time ="+Tmin);
@@ -1229,13 +1253,13 @@ public class NDSTAlgorithm11 {
         return 0;
     }
     
-    double getMinTimeOfBlock(int posI, int posJ, int Kx, int Ky, List<BlockResultItem> ListBlockResult) {
+    double getMinTimeOfBlock(int posI, int posJ, int Kx, int Ky, List<BlockResultItem> ListBlockResult, float[] ListEnergyUsing) {
        double timeMin = Double.MAX_VALUE;
        for (int u =0 ; u <= Kx; u++) {
            for (int v=0; v <= Ky; v++) {
                int positionI = posI + u*Anpha;
                int positionJ = posJ + v*Anpha;
-               double time = findTotalTimeFromListBlock(positionI, positionJ, ListBlockResult);
+               double time = findTotalTimeFromListBlock(positionI, positionJ, ListBlockResult,ListEnergyUsing );
                if (time != 0 && time < timeMin) {
                    timeMin = time;
                }
@@ -1245,10 +1269,28 @@ public class NDSTAlgorithm11 {
        return timeMin;
     }
     
-    double findTotalTimeFromListBlock(int positionI, int positionJ,List<BlockResultItem> ListBlockResult) {
+    double findTotalTimeFromListBlock(int positionI, int positionJ,List<BlockResultItem> ListBlockResult, float[] ListEnergyUsing) {
         for (int i =0; i< ListBlockResult.size(); i++) {
             BlockResultItem blockResultItem = ListBlockResult.get(i);
             if (blockResultItem.getPostionI() == positionI && blockResultItem.getPostionJ() == positionJ) {
+                //Calculate Energy Using
+                List<List<PathItem>> listResultX = blockResultItem.getListResultX();
+                List<Double> listTime = blockResultItem.getListTime();
+                for (int j = 0 ; j < listResultX.size(); j++) {
+                    List<PathItem> listPathX = listResultX.get(j);
+                    double timePath = listTime.get(j);
+                    for (int k = 0; k < listPathX.size(); k++) {
+                        List<Integer> listPoint = listPathX.get(k).getPath();
+
+                        for (int m = 0; m < listPoint.size(); m++) {
+                            int point = listPoint.get(m);
+                            ListEnergyUsing[point] += (getEnergyConsumer2(listPoint, point,m) * timePath);
+                        }
+
+                    }
+                }
+                
+                
                 return blockResultItem.getTotalTime();
             }
         }
@@ -1256,32 +1298,65 @@ public class NDSTAlgorithm11 {
         return 0;
     }
     public double Combining_All_Division2(List<BlockResultItem> ListBlockResult,boolean isFull) {
-        double network_timelife =0;
+        double network_timelife = 0;
         if (isFull) {
             //TH mang full
             BlockResultItem blockResultItem = ListBlockResult.get(0);
             List<Double> listTime = blockResultItem.getListTime();
-            for (int i =0; i< listTime.size(); i++) {
+            for (int i = 0; i < listTime.size(); i++) {
                 network_timelife += listTime.get(i);
             }
-            
+
         } else {
             //TH division
-            double tempx = SensorUtility.numberRow/(2*R);
-            double tempy = SensorUtility.numberColum/(2*R);
-            for (int i =1; i<= Anpha; i++) {
+            double tempx = SensorUtility.numberRow / (2 * R);
+            double tempy = SensorUtility.numberColum / (2 * R);
+            int current_lifetime;
+            int min_dis;
+            for (int i = 1; i <= Anpha; i++) {
                 for (int j = 1; j <= Anpha; j++) {
-                    int Kx = (int) Math.ceil((tempx - i) / Anpha);
-                    int Ky = (int) Math.ceil((tempy - j) / Anpha);
-                    if (Kx > 0 && Ky > 0) {
-                        double TimeIJ = getMinTimeOfBlock(i, j, Kx, Ky, ListBlockResult);
-                        network_timelife += TimeIJ;
+                    if (i == 1 || j == 1) {
+                        current_lifetime = 0;
+                        //Reset List Energy using
+                        for (int m =0; m < mListSensorNodes.size();m++) {
+                            ListEnergyUsing[m] = 0;
+                        }
+                        
+                        if (i < j) {
+                            min_dis = Anpha - j;
+                        } else {
+                            min_dis = Anpha - i;
+                        }
+                        for (int k = 0; k <= min_dis; k++) {
+                            int i1 = i + k;
+                            int j1 = j + k;
+                            int Kx = (int) Math.ceil((tempx - i1) / Anpha);
+                            int Ky = (int) Math.ceil((tempy - j1) / Anpha);
+                            if (Kx > 0 && Ky > 0) {
+                                double TimeIJ = getMinTimeOfBlock(i1, j1, Kx, Ky, ListBlockResult, ListEnergyUsing);
+                                current_lifetime += TimeIJ;
+
+                            }
+
+                        }
+                        
+                        //Find Eij max in min_dis time
+                        float Eij_max = 0; 
+                        for (int m = 0; m < mListSensorNodes.size(); m++) {
+                            if (ListEnergyUsing[m] > Eij_max) {
+                                Eij_max = ListEnergyUsing[m];
+                            }
+                        }
+                        current_lifetime *= (SensorUtility.mEoValue / Eij_max);
+                        if (network_timelife < current_lifetime) {
+                            network_timelife = current_lifetime;
+                        }
                     }
                 }
+
+                //   network_timelife /= ((double)(Anpha)*(double)(Anpha));
             }
-            network_timelife /= (Anpha*Anpha);
         }
-        
         return network_timelife;
     }
     

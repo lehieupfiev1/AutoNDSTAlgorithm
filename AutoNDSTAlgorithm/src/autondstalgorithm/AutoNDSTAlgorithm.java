@@ -42,7 +42,7 @@ public class AutoNDSTAlgorithm {
         NDSTAlgorithm11 algorithm = new NDSTAlgorithm11(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
-        for (int i = 3; i <= 3; i++) {
+        for (int i = 1; i <= 16; i++) {
             try {
                 System.out.println("Test case "+i+"---------------------------");
                 //Cai dat ten File
@@ -59,7 +59,7 @@ public class AutoNDSTAlgorithm {
                 Logger.getLogger(AutoNDSTAlgorithm.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
-                writeResultFile(mPath+"NSDTAlgorithm11.txt", i, timeRuning, timeLifeOn); //Url luu file input duoc sinh ra
+                writeResultFile(mPath+"NSDTAlgorithm12.txt", i, timeRuning, timeLifeOn); //Url luu file input duoc sinh ra
                 resetData();
             } catch (IOException ex) {
                 Logger.getLogger(AutoNDSTAlgorithm.class.getName()).log(Level.SEVERE, null, ex);
