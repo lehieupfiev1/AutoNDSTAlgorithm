@@ -39,7 +39,7 @@ public class AutoNDSTAlgorithm {
 
         // TODO code application logic here
         //NDSTAlgorithm1 algorithm = new NDSTAlgorithm1();
-        NDSTAlgorithm11 algorithm = new NDSTAlgorithm11(); //Tinh all path ngay tu dau
+        NDSTAlgorithm12 algorithm = new NDSTAlgorithm12(); //Tinh all path ngay tu dau
         initData();
         //Chay test case tu 6 den 10
         for (int i = 1; i <= 16; i++) {
