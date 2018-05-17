@@ -59,7 +59,7 @@ public class AutoNDSTAlgorithm {
                 Logger.getLogger(AutoNDSTAlgorithm.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
-                writeResultFile(mPath+"NSDTAlgorithm13.txt", i, timeRuning, timeLifeOn); //Url luu file input duoc sinh ra
+                writeResultFile(mPath+"NSDTAlgorithm14.txt", i, timeRuning, timeLifeOn); //Url luu file input duoc sinh ra
                 resetData();
             } catch (IOException ex) {
                 Logger.getLogger(AutoNDSTAlgorithm.class.getName()).log(Level.SEVERE, null, ex);

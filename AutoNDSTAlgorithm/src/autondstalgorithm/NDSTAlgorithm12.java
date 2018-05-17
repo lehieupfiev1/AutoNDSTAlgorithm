@@ -810,7 +810,211 @@ public class NDSTAlgorithm12 {
         
         return TotalTime;
     }
+        public double ConvertForm2ToForm1_v2(List<CustomPathItem> ListAllPathItem, List<Integer> ListTarget, List<List<PathItem>> ListResultX,List<Double> ListTime, boolean isfull) {
+        //Creat ListPathTarget
+         double TotalTime =0;
+         List<List<CustomPathItem>> ListPathTarget = new ArrayList<>();
+         for (int i = 0 ; i < ListTarget.size(); i++) {
+             List<CustomPathItem> listPath = new ArrayList<>();
+             ListPathTarget.add(listPath);
+         }
+         //List Add PositionId of Target in CustomPathItem
+         for (int i = 0 ; i < ListAllPathItem.size(); i++) {
+             CustomPathItem customPathItem = ListAllPathItem.get(i);
+             List<Integer> listPostionId = customPathItem.getListPositionId();
+             listPostionId.clear();
+             int idSensing = customPathItem.getPathItem().getPath().get(0);
+             for (int j =0; j < ListTarget.size(); j++) {
+                 if (Distance[idSensing][N+ListTarget.get(j)] <= Rs) {
+                     ListPathTarget.get(j).add(customPathItem);
+                     listPostionId.add(j);
+                 }
+             }
+             
+         }
+         if (!ListPathTarget.isEmpty()) {
+         System.out.println("ListPathTarget 0 ="+ ListPathTarget.get(0).size());
+         } else {
+        	 return 0;
+         }
+        // Find X 
+        List<Integer> listCustomPathTargetId = new ArrayList<>();
+        List<Integer> listPositionPathInTarget = new ArrayList<>();
+        boolean TargetCover[] = new boolean[ListTarget.size()];
+        double MinTime;
+        while (checkCorverTargetListExit(ListPathTarget)) {
+            List<PathItem> listX = new ArrayList<>();
+            listCustomPathTargetId.clear();
+            listPositionPathInTarget.clear();
+            
+            //reset target cover
+            //System.out.println("Reset target cover ");
+            for (int i = 0; i< TargetCover.length; i++) TargetCover[i] = false;
+            MinTime = Double.MAX_VALUE;
+            //Find a target not cover
+            while (checkNOTCorverTarget(TargetCover)) {
+                int Target = 0;
+                for (int i = 0; i < TargetCover.length; i++) {
+                    if (!TargetCover[i]) {
+                        Target = i;
+                        break;
+                    }
+                }
+                //System.out.println("Target not include X:  "+Target);
+                //Get a path of Taget
+                List<CustomPathItem> listCusPath = ListPathTarget.get(Target);
+                int pos = findCustomPathItem(listCusPath, TargetCover);
+                CustomPathItem customPathItem = listCusPath.get(pos);
+                listX.add(customPathItem.getPathItem());
+                if (MinTime > customPathItem.getTime()) {
+                    MinTime = customPathItem.getTime();
+                }
+                listCustomPathTargetId.add(Target);
+                listPositionPathInTarget.add(pos);
+                //Check customPathCover target
+                List<Integer> listPosId  = customPathItem.getListPositionId();
+                for (int j = 0; j < listPosId.size(); j++) {
+                    TargetCover[listPosId.get(j)] = true;
+                }
+               // System.out.println("MinTime :  "+MinTime);
+            }
+            
+            //System.out.println("Found a result ");
+            //Add result
+            ListResultX.add(listX);
+            ListTime.add(MinTime);
+            TotalTime += MinTime;
+            
+            //Update time of path in listX
+            for (int i =0; i < listCustomPathTargetId.size(); i++) {
+                int targ = listCustomPathTargetId.get(i);
+                int posi = listPositionPathInTarget.get(i);
+                CustomPathItem customPathItem = ListPathTarget.get(targ).get(posi);
+                double time = customPathItem.getTime() - MinTime;
+                customPathItem.setTime(time);
+            }
+            //Remove all custompath has time =0
+            for (int i =0; i < ListPathTarget.size(); i++) {
+                List<CustomPathItem> listPa = ListPathTarget.get(i);
+                for (int j =0; j < listPa.size(); j++) {
+                    CustomPathItem customPathItem = listPa.get(j);
+                    if (customPathItem.getTime() == 0) {
+                        listPa.remove(j);
+                        break;
+                    }
+                }
+            }
+            
+            
+            
+        }
+        return TotalTime;
+    }
+        
+    int findCustomPathItem(List<CustomPathItem> listCustomPath , boolean Target[]) {
+         int NumberCover =0;
+         int tempCover =0;
+         int NumberNotCover =0;
+         int tempNotCover = 0;
+         int pos =0;
+         //Lay phan tu dau tien
+         List<Integer> listCoverPos = listCustomPath.get(0).getListPositionId();
+         for (int i =0; i< listCoverPos.size();i++) {
+             if (Target[listCoverPos.get(i)]) {
+                 NumberCover++;
+             } else {
+                 NumberNotCover++;
+             }
+         }
+         
+         //So sanh voi cac phan tu sau
+         for (int i = 1; i < listCustomPath.size(); i++) {
+             CustomPathItem customPathItem = listCustomPath.get(i);
+             tempCover = 0;
+             tempNotCover = 0;
+             List<Integer> listCoverPos2 = customPathItem.getListPositionId();
+
+             for (int j = 0; j < listCoverPos2.size(); j++) {
+                 if (Target[listCoverPos2.get(j)]) {
+                     tempCover++;
+                 } else {
+                     tempNotCover++;
+                 }
+             }
+             
+             if (tempCover < NumberCover) {
+                 NumberCover = tempCover;
+                 NumberNotCover = tempNotCover;
+                 pos = i;
+             } else if (tempCover == NumberCover && tempNotCover > NumberNotCover) {
+                 NumberCover = tempCover;
+                 NumberNotCover = tempNotCover;
+                 pos = i;
+             }
+             
+         }
+         
+         return pos;
+         
+     }
     
+    boolean checkNOTCorverTarget(boolean TargetCover[]) {
+        for (int i = 0; i< TargetCover.length; i++) {
+           if (!TargetCover[i]) {
+               return true;
+           }
+        }
+        return false;
+    }
+    
+    boolean checkCorverTargetListExit(List<List<CustomPathItem>> ListPathTarget) {
+        for (int i  =0; i< ListPathTarget.size(); i++) {
+            if (ListPathTarget.get(i).size() == 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    
+    public double ConvertForm2ToForm1_v3(List<CustomPathItem> ListAllPathItem, List<Integer> ListTarget, List<List<PathItem>> ListResultX,List<Double> ListTime, boolean isfull) {
+        //Find List
+        List<List<PathItem>> ListY = new ArrayList<>();
+        List<List<Double>> ListTi = new ArrayList<>();
+        for (int i =0 ; i< ListTarget.size(); i++) {
+            List<PathItem> listPath = new ArrayList<>();
+            List<Double> Ti = new ArrayList<>();
+            ListY.add(listPath);
+            ListTi.add(Ti);
+        }
+        //Create ListPath follow target
+        List<Integer> tempList = new ArrayList<>();
+        for (int i = 0; i< ListAllPathItem.size(); i++) {
+            PathItem pathItem = ListAllPathItem.get(i).getPathItem();
+            int IdSensing = pathItem.getPath().get(0);
+            tempList.clear();
+            for (int j =0; j< ListTarget.size(); j++) {
+                if (Distance[IdSensing][N+ListTarget.get(j)] <= Rs) {
+                    //Add Path in to target J
+                    ListY.get(j).add(pathItem);
+                    tempList.add(j);
+                }
+                
+            }
+            
+            //Add Time to listTi
+            for (int k =0; k< tempList.size(); k++) {
+                int target = tempList.get(k);
+                double time = ListAllPathItem.get(i).getTime()/tempList.size();
+                ListTi.get(target).add(time);
+            }
+
+        }
+        
+        // Convert
+        
+        return 0;
+    }
     
     
     public void CoppyToListSensor() {
@@ -1039,7 +1243,7 @@ public class NDSTAlgorithm12 {
                                     //Convert Form 2 to Form 1
                                     List<List<PathItem>> listResultX = new ArrayList<>();
                                     List<Double> listTime = new ArrayList<>();
-                                    double Totaltime = ConvertForm2ToForm1(ListCustomPath, tempListTarget, listResultX, listTime,false);
+                                    double Totaltime = ConvertForm2ToForm1_v2(ListCustomPath, tempListTarget, listResultX, listTime,false);
                                     BlockResultItem blockResultItem = new BlockResultItem(positionI, positionJ, listResultX, listTime, Totaltime);
                                     mListBlockResult.add(blockResultItem);
                                     
@@ -1086,7 +1290,7 @@ public class NDSTAlgorithm12 {
                     //Convert Form 2 to Form 1
                     List<List<PathItem>> listResultX = new ArrayList<>();
                     List<Double> listTime = new ArrayList<>();
-                    double Totaltime = ConvertForm2ToForm1(ListCustomPath, mListTarget, listResultX, listTime,true);
+                    double Totaltime = ConvertForm2ToForm1_v2(ListCustomPath, mListTarget, listResultX, listTime,true);
                     BlockResultItem blockResultItem = new BlockResultItem(0, 0, listResultX, listTime, Totaltime);
                     mListBlockResult.add(blockResultItem);
                 }
