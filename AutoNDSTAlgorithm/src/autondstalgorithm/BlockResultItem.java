@@ -13,8 +13,8 @@ import java.util.List;
  */
 public class BlockResultItem {
     int id;
-    int postionI;
-    int postionJ;
+    int postionI =-1;
+    int postionJ =-1;
     List<List<PathItem>> listResultX;
     List<Double> listTime;
     double TotalTime;
