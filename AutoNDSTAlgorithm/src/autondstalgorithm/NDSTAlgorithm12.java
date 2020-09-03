@@ -1826,8 +1826,8 @@ public class NDSTAlgorithm12 {
 			double time = mListofListNDSTPathTime.get(i).get(0) * ratio;
 			List<Double> ListTime = mListofListNDSTPathTime.get(i);
 			for (int j =0; j <ListTime.size(); j++) {
-			   ListTime.remove(i);
-			   ListTime.add(i, time);
+			   ListTime.remove(j);
+			   ListTime.add(j, time);
 			}
 		}
 		
