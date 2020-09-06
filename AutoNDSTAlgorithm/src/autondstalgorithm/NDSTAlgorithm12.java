@@ -1845,17 +1845,36 @@ public class NDSTAlgorithm12 {
 	void combineTotalXfromBlock(int minBlock) {
 		int count = 0;
 		long TotalTime = 0;
+		boolean checkTaget[] = new boolean[T];
+		boolean found;
 		do {
 			count++;
 			List<PathItem> listResultPath = new ArrayList<PathItem>();
 			List<Double> listResultTime = new ArrayList<Double>();
 			double minTime = findMinTimeInPathfromBlock();
+			//Reset check target 
+			for (int i =0; i< T; i++) {
+				checkTaget[i] = false;
+			}
+			
 			for (int i = 0; i < mListBlockMaxTime.size(); i++) {
 				List<PathItem> listPath = new ArrayList<PathItem>();
 				listPath = mListBlockMaxTime.get(i).listResultX.get(0);
 				for (int j = 0; j < listPath.size(); j++) {
-					listResultPath.add(listPath.get(j));
-					listResultTime.add(minTime);
+					int sensorId = listPath.get(j).getElement(0);
+					found = false;
+					for (int k =0; k< T; k++) {
+						if (Distance[sensorId][N +k] <= Rs) {
+							if (!checkTaget[k]) {
+								checkTaget[k] = true;
+								found = true;
+							}
+						}
+					}
+					if (found) {
+					        listResultPath.add(listPath.get(j));
+				                listResultTime.add(minTime);
+					}
 				}
 			}
 
@@ -1866,7 +1885,6 @@ public class NDSTAlgorithm12 {
 			mListofListNDSTPathTime.add(listResultTime);
 		} while (mListBlockMaxTime.get(minBlock).listResultX.size() > 0);
 		System.out.println("combineTotalXfromBlock" + count + " TotalTime:" + TotalTime);
-
 	}
 
 	double findMinTimeInPathfromBlock() {
