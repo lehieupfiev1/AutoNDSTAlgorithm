@@ -142,7 +142,7 @@ public class NDSTAlgorithm12 {
 		Rc = SensorUtility.mRcValue;
 		mTimeLife = 0;
 		MaxHopper = SensorUtility.mMaxHopper;
-		R = Rs + MaxHopper * Rc;
+		R = Rs + (MaxHopper-1) * Rc;
 
 		// Read constance Energy : Es, Et,Er,Efs,Emp
 		Es = SensorUtility.mEsValue;
